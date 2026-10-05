@@ -1,0 +1,2475 @@
+/* Klasik görünüm: tek sayfalık CV. Tüm kurallar #classic kapsamındadır (lightbox hariç: body'ye eklenir). */
+
+#classic.cl-root {
+  --cl-head: var(--font-head); /* ortak tipografi sistemine bağlı */
+  --cl-card: #fbf0d6;
+  --cl-hard: rgba(58, 36, 24, 0.32);
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  padding: 0;
+  background: var(--cream);
+  color: var(--ink);
+  /* Tek ritim: bölüm arası, başlık altı, kart aralığı, kart iç dolgusu */
+  --cl-sec: 64px;
+  --cl-head-gap: 24px;
+  --cl-gap: 24px;
+  --cl-pad: 18px;
+  /* Gövde metni: geniş ekranda bir kademe büyür (aşağıdaki min-width kuralı) */
+  --cl-fs-body: var(--fs-md);
+  --cl-lh: 1.45;
+  --cl-measure: 70ch;
+  /* Hareket: kısa ve keskin. Tüm klasik görünüm animasyonları bu değerleri kullanır. */
+  --cl-t-fast: 160ms; /* küçük parçalar: çizgi parçası, vurgu */
+  --cl-t-med: 280ms; /* kart / satır belirmesi */
+  --cl-t-slow: 420ms; /* başlık alt çizgisi gibi uzun çizimler */
+  --cl-t-pop: 210ms; /* üç kareli "pat" (nokta, kare) */
+  --cl-step: 60ms; /* sıralı öğeler arası kademe (classic.js: SEQ_STEP) */
+  --cl-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --cl-rise: 12px; /* belirirken alttan gelinen mesafe */
+  font-family: var(--font-body);
+  font-size: var(--cl-fs-body);
+  line-height: var(--cl-lh);
+}
+
+@media (min-width: 900px) {
+  #classic.cl-root {
+    --cl-fs-body: 22px;
+  }
+}
+
+/* Uzun sözcükler dar ekranda taşmasın; olası taşma yatay kaydırma üretmesin */
+#classic .cl {
+  overflow-x: clip;
+  overflow-wrap: break-word;
+}
+
+#classic .cl-wrap,
+#classic .cl > .cl-section--about,
+#classic .cl > .cl-section--activities,
+#classic .cl > .cl-section--projects,
+#classic .cl > .cl-section--skills {
+  width: min(100% - 40px, 1040px);
+  margin-inline: auto;
+}
+
+#classic p,
+#classic ul,
+#classic ol,
+#classic figure,
+#classic h1,
+#classic h2,
+#classic h3,
+#classic h4 {
+  margin: 0;
+}
+
+#classic ul,
+#classic ol {
+  padding: 0;
+  list-style: none;
+}
+
+#classic img {
+  image-rendering: auto;
+}
+
+#classic.cl-root :focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+}
+
+#classic.cl-root .cl-bar :focus-visible,
+#classic.cl-root .cl-hero :focus-visible,
+#classic.cl-root .cl-section--contact :focus-visible {
+  outline-color: var(--focus);
+}
+
+/* Gezinmeyle odaklanan bölümün çevresinde halka olmasın */
+#classic.cl-root .cl-section:focus,
+#classic.cl-root .cl-section:focus-visible {
+  outline: none;
+}
+
+/* Gezinmede başlık yapışkan çubuğun altında kalmasın */
+#classic .cl-section {
+  scroll-margin-top: calc(var(--bar-h, 112px) + 20px);
+}
+
+/* ---------- Düğme ---------- */
+
+#classic.cl-root .cl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 8px 14px;
+  border: 3px solid var(--wood-dark);
+  border-radius: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--cl-head);
+  font-size: var(--fs-md);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  box-shadow:
+    inset -3px -3px 0 var(--cream-dark),
+    3px 3px 0 var(--shadow);
+  transition: transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  #classic.cl-root .cl-btn:hover {
+    background: #fff3d6;
+    transform: translateY(-2px);
+  }
+}
+
+#classic.cl-root .cl-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset 3px 3px 0 var(--cream-dark),
+    1px 1px 0 var(--shadow);
+}
+
+#classic.cl-root .cl-btn--accent {
+  background: var(--orange);
+  color: #fff6e0;
+  box-shadow:
+    inset -3px -3px 0 var(--orange-dark),
+    3px 3px 0 var(--shadow);
+}
+
+@media (hover: hover) {
+  #classic.cl-root .cl-btn--accent:hover {
+    background: #e8763f;
+  }
+}
+
+#classic.cl-root .cl-btn--accent:active {
+  box-shadow:
+    inset 3px 3px 0 var(--orange-dark),
+    1px 1px 0 var(--shadow);
+}
+
+#classic .cl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ---------- Yapışkan gezinme (HUD düğmeleri sağ üstte sabit durur) ---------- */
+
+#classic .cl-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 4px solid var(--wood-dark);
+  background: var(--bg);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.22);
+}
+
+/* Dar ekran: HUD üstte, gezinme şeridi onun altında */
+#classic .cl-bar-in {
+  padding: calc(var(--hud-bottom, calc(56px + var(--safe-t))) + 8px) calc(10px + var(--safe-r)) 8px calc(10px + var(--safe-l));
+}
+
+#classic .cl-nav {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  /* Bağlantıların görünmez dokunma alanı (aşağıda ::after) kırpılmasın; şerit yüksekliği değişmez */
+  margin-block: -3px;
+  padding-block: 3px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+#classic .cl-nav::-webkit-scrollbar {
+  display: none;
+}
+
+#classic .cl-nav li {
+  flex: none;
+}
+
+#classic.cl-root .cl-nav a {
+  position: relative;
+  display: block;
+  padding: 5px 12px;
+  border: 3px solid transparent;
+  color: var(--cream);
+  font-family: var(--cl-head);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  /* Etkin bağlantı vurgusu kısa bir renk geçişiyle değişir (transform yok) */
+  transition:
+    background-color var(--cl-t-fast) var(--cl-ease),
+    border-color var(--cl-t-fast) var(--cl-ease),
+    color var(--cl-t-fast) var(--cl-ease),
+    box-shadow var(--cl-t-fast) var(--cl-ease);
+}
+
+/* Dokunma hedefi: 34-36px yüksekliği görünümü değiştirmeden 40px'in üstüne çıkarır */
+#classic.cl-root .cl-nav a::after {
+  content: '';
+  position: absolute;
+  inset: -6px -3px;
+}
+
+@media (hover: hover) {
+  #classic.cl-root .cl-nav a:hover {
+    border-color: var(--cream-dark);
+  }
+}
+
+#classic.cl-root .cl-nav a:focus-visible {
+  outline-offset: -3px;
+}
+
+#classic.cl-root .cl-nav a.is-active {
+  border-color: var(--wood-dark);
+  background: var(--orange);
+  color: #fff6e0;
+  box-shadow: inset -3px -3px 0 var(--orange-dark);
+}
+
+/* Geniş ekran: gezinme solda, HUD ile aynı satırda */
+@media (min-width: 1180px) {
+  #classic .cl-bar-in {
+    display: flex;
+    align-items: center;
+    min-height: calc(var(--hud-bottom, calc(52px + var(--safe-t))) + 12px);
+    padding: 8px calc(var(--hud-w, 560px) + 36px) 8px max(20px, calc((100% - 1040px) / 2));
+  }
+
+  #classic .cl-nav {
+    min-width: 0;
+  }
+}
+
+/* ---------- Kahraman ---------- */
+
+#classic .cl-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 52px 0 108px;
+  border-bottom: 4px solid var(--wood-dark);
+  background: var(--bg);
+  color: var(--cream);
+}
+
+/* Odanın karartılmış, çok yavaş kayan şeridi */
+#classic .cl-hero-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 135%;
+  background-position: center;
+  background-size: cover;
+  image-rendering: pixelated;
+  opacity: 0.55;
+  animation: cl-pan 90s linear infinite alternate;
+}
+
+#classic .cl-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 2px, transparent 2px 4px),
+    linear-gradient(90deg, rgba(43, 32, 48, 0.94) 0%, rgba(43, 32, 48, 0.82) 55%, rgba(43, 32, 48, 0.62) 100%);
+}
+
+@keyframes cl-pan {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-25.9%);
+  }
+}
+
+#classic .cl-hero-in {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 44px;
+}
+
+#classic .cl-hero-in > :only-child {
+  grid-column: 1 / -1;
+}
+
+#classic .cl-photo {
+  width: 224px;
+  height: 224px;
+  margin: 8px 12px 12px 8px;
+  border: 4px solid var(--wood-dark);
+  background: var(--cream-dark);
+  box-shadow:
+    0 0 0 4px var(--cream),
+    0 0 0 8px var(--wood-dark),
+    10px 10px 0 8px rgba(0, 0, 0, 0.55);
+}
+
+#classic .cl-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#classic .cl-name {
+  font-family: var(--cl-head);
+  font-size: clamp(var(--fs-2xl), 6vw, 60px);
+  font-weight: 400;
+  line-height: 1.06;
+  overflow-wrap: anywhere;
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+}
+
+#classic .cl-title {
+  margin-top: 12px;
+  color: #f39a62;
+  font-family: var(--cl-head);
+  font-size: clamp(22px, 2.8vw, var(--fs-xl));
+  font-weight: 400;
+  line-height: var(--lh-ui);
+}
+
+#classic .cl-tagline {
+  max-width: 34em;
+  margin-top: 12px;
+  font-size: var(--fs-lg);
+  line-height: 1.3;
+}
+
+#classic .cl-loc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--cream-dark);
+}
+
+#classic .cl-pin {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--green);
+  box-shadow: 2px 2px 0 var(--green-dark);
+}
+
+#classic .cl-hero .cl-actions {
+  margin-top: 22px;
+}
+
+/* ---------- Sayılarla ---------- */
+
+#classic .cl-section--numbers {
+  position: relative;
+  z-index: 2;
+  margin-top: -58px;
+}
+
+#classic .cl-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr; /* 2×2 düzende de eşit yükseklik */
+  gap: var(--cl-gap);
+}
+
+#classic .cl-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--cl-pad) 14px calc(var(--cl-pad) + 2px);
+  text-align: center;
+  border: 4px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow:
+    inset -4px -4px 0 var(--cream-dark),
+    6px 6px 0 rgba(0, 0, 0, 0.4);
+  transition:
+    transform var(--cl-t-fast) var(--cl-ease),
+    box-shadow var(--cl-t-fast) var(--cl-ease);
+}
+
+@media (hover: hover) {
+  #classic .cl-stat:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset -4px -4px 0 var(--cream-dark),
+      6px 8px 0 rgba(0, 0, 0, 0.4);
+  }
+}
+
+#classic .cl-stat-v {
+  color: var(--orange-dark);
+  font-family: var(--font-data);
+  font-size: clamp(var(--fs-xl), 3.8vw, var(--fs-3xl));
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* Açıklama en çok iki satır */
+#classic .cl-stat-l {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  line-height: var(--lh-ui);
+  text-wrap: balance;
+}
+
+/* ---------- Bölüm başlıkları ---------- */
+
+/* Boşluk dolgu değil kenar boşluğu: kaydırma hedefi doğrudan başlığa denk gelir */
+#classic .cl > .cl-section--about,
+#classic .cl > .cl-section--activities,
+#classic .cl > .cl-section--projects,
+#classic .cl > .cl-section--skills,
+#classic .cl-two {
+  margin-top: var(--cl-sec);
+}
+
+#classic .cl-h2 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  margin-bottom: var(--cl-head-gap);
+  padding-bottom: 14px; /* 10px boşluk + 4px alt çizgi (::after) */
+  color: var(--ink);
+  font-family: var(--cl-head);
+  font-size: var(--fs-2xl);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+/* Alt çizgi: canlandırılabilsin diye kenarlık değil ayrı parça (soldan sağa çizilir) */
+#classic .cl-h2::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-bottom: 4px solid var(--wood-dark);
+}
+
+#classic .cl-h2::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: var(--orange);
+  box-shadow: 3px 3px 0 var(--wood-dark);
+}
+
+#classic .cl-h3 {
+  margin-bottom: 12px;
+  color: var(--orange-dark);
+  font-family: var(--cl-head);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+}
+
+/* ---------- Hakkımda ---------- */
+
+#classic .cl-about {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+
+/* Okuma satırı ~70 karakteri geçmesin */
+#classic .cl-prose p,
+#classic .cl-tl-note,
+#classic .cl-card-sum,
+#classic .cl-find li {
+  max-width: var(--cl-measure);
+}
+
+#classic .cl-prose p + p {
+  margin-top: 14px;
+}
+
+#classic .cl-high {
+  padding: calc(var(--cl-pad) - 2px) var(--cl-pad) var(--cl-pad);
+  border: 4px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow: 6px 6px 0 var(--cl-hard);
+}
+
+#classic .cl-badges li {
+  position: relative;
+  padding: 5px 0 5px 26px;
+  line-height: 1.3;
+}
+
+#classic .cl-badges li + li {
+  border-top: 2px dashed var(--cream-dark);
+}
+
+#classic .cl-badges li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 13px;
+  width: 10px;
+  height: 10px;
+  background: var(--green);
+  box-shadow: 2px 2px 0 var(--green-dark);
+}
+
+/* ---------- Projeler ---------- */
+
+#classic .cl-projects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cl-gap);
+}
+
+#classic .cl-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 4px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow: 6px 6px 0 var(--cl-hard);
+  transition:
+    transform var(--cl-t-fast) var(--cl-ease),
+    box-shadow var(--cl-t-fast) var(--cl-ease);
+}
+
+/* Kalkma: fare üstündeyken ya da klavye odağı kartın içindeyken (yalnızca :focus-visible: tıklama sonrası takılı kalmaz) */
+@media (hover: hover) {
+  #classic .cl-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 8px 11px 0 var(--cl-hard);
+  }
+}
+
+#classic .cl-card:has(:focus-visible) {
+  transform: translateY(-3px);
+  box-shadow: 8px 11px 0 var(--cl-hard);
+}
+
+#classic .cl-cover {
+  position: relative;
+  flex: none;
+  aspect-ratio: 16 / 7; /* basık kapak: kartlar kısalır */
+  overflow: hidden;
+  border-bottom: 4px solid var(--wood-dark);
+  background: var(--cream-dark);
+}
+
+#classic .cl-card--feat .cl-cover {
+  aspect-ratio: 16 / 9;
+}
+
+#classic .cl-cover > img,
+#classic .cl-cover > .cl-ph,
+#classic .cl-cover > .cl-cover-btn {
+  position: absolute;
+  inset: 0;
+}
+
+#classic .cl-cover img,
+#classic .cl-cover .cl-ph,
+#classic .cl-cover-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#classic .cl-cover img {
+  object-fit: cover;
+  object-position: center top;
+  /* Yakınlaşma kapak çerçevesinde (overflow: hidden) kırpılır; kırpma noktası object-position ile uyumlu */
+  transform-origin: center top;
+  transition: transform var(--cl-t-med) var(--cl-ease);
+}
+
+#classic .cl-cover img.is-centered {
+  object-position: center;
+  transform-origin: center;
+}
+
+@media (hover: hover) {
+  #classic .cl-card:hover .cl-cover img {
+    transform: scale(1.03);
+  }
+}
+
+#classic .cl-card:has(.cl-cover-btn:focus-visible) .cl-cover img {
+  transform: scale(1.03);
+}
+
+/* "Büyüt" rozeti: galerisi olan kapağın sağ alt köşesi. Tıklamayı kapak düğmesine bırakır.
+   Fare olan cihazda hover/odakta belirir; dokunmatikte hep görünür. */
+#classic .cl-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+#classic .cl-zoom-ico {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+@media (hover: hover) {
+  #classic .cl-zoom {
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity var(--cl-t-fast) var(--cl-ease),
+      transform var(--cl-t-fast) var(--cl-ease);
+  }
+
+  #classic .cl-card:hover .cl-zoom {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#classic .cl-card:has(.cl-cover-btn:focus-visible) .cl-zoom {
+  opacity: 1;
+  transform: none;
+}
+
+#classic .cl-cover-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+#classic.cl-root .cl-cover-btn:focus-visible {
+  outline-offset: -5px;
+}
+
+/* Kapağı olmayan projeler: renkli pixel desen + simge */
+#classic .cl-ph {
+  display: grid;
+  place-items: center;
+  background-color: var(--ph-a, var(--orange));
+  background-image:
+    linear-gradient(45deg, var(--ph-b, var(--orange-dark)) 25%, transparent 25%, transparent 75%, var(--ph-b, var(--orange-dark)) 75%),
+    linear-gradient(45deg, var(--ph-b, var(--orange-dark)) 25%, transparent 25%, transparent 75%, var(--ph-b, var(--orange-dark)) 75%);
+  background-position:
+    0 0,
+    12px 12px;
+  background-size: 24px 24px;
+  color: #fff6e0;
+}
+
+#classic .cl-ico {
+  width: 96px;
+  height: 96px;
+  fill: currentColor;
+  filter: drop-shadow(5px 5px 0 rgba(0, 0, 0, 0.4));
+}
+
+#classic .cl-date {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: var(--ls-data);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+#classic .cl-date time,
+#classic .cl-date-new {
+  padding: 3px 9px;
+}
+
+#classic .cl-date-new {
+  border-right: 3px solid var(--wood-dark);
+  background: var(--orange);
+  color: #fff6e0;
+}
+
+#classic .cl-card-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: calc(var(--cl-pad) - 2px) var(--cl-pad) var(--cl-pad);
+}
+
+/* Kart metni gövdeden bir kademe küçük: kartlar uzamasın */
+#classic .cl-card-sum,
+#classic .cl-find li {
+  font-size: var(--fs-md);
+  line-height: 1.35;
+}
+
+/* Özet 3 satırda kesilir (sınıfı JS ekler; JS yoksa tam metin) */
+#classic .cl-card-sum.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* Bulgular listesi kapalıyken gizli (sınıfı JS ekler; düğme açar) */
+#classic .cl-find.is-collapsed {
+  display: none;
+}
+
+/* Açılıp kapanırken (JS yükseklik animasyonu süresince) taşan içerik kırpılır */
+#classic .cl-card-sum.is-moving,
+#classic .cl-find.is-moving {
+  overflow: hidden;
+}
+
+#classic.cl-root .cl-more {
+  position: relative;
+  align-self: flex-start;
+  margin: -6px 0 0;
+  padding: 3px 0 1px;
+  border: 0;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0;
+  background: none;
+  color: var(--orange-dark);
+  font-family: var(--cl-head);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Dokunma hedefi: 27 → 41px (görünmez genişletme) */
+#classic.cl-root .cl-more::after {
+  content: '';
+  position: absolute;
+  inset: -8px -8px -9px;
+}
+
+@media (hover: hover) {
+  #classic.cl-root .cl-more:hover {
+    color: var(--ink);
+  }
+}
+
+#classic .cl-card-title {
+  font-family: var(--cl-head);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: var(--lh-head);
+  overflow-wrap: anywhere;
+}
+
+/* Bulgular: kare madde imli kısa liste */
+#classic .cl-find-h {
+  margin-bottom: 2px;
+  color: var(--orange-dark);
+  font-family: var(--cl-head);
+  font-size: var(--fs-md);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+}
+
+#classic .cl-find li {
+  position: relative;
+  padding: 4px 0 4px 24px;
+}
+
+#classic .cl-find li + li {
+  border-top: 2px dashed var(--cream-dark);
+}
+
+#classic .cl-find li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 11px;
+  width: 10px;
+  height: 10px;
+  background: var(--green);
+  box-shadow: 2px 2px 0 var(--green-dark);
+}
+
+#classic .cl-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#classic .cl-mini li {
+  display: flex;
+  flex-direction: column;
+  min-width: 78px;
+  padding: 4px 10px 5px;
+  border: 3px solid var(--wood-dark);
+  background: var(--cream);
+  line-height: 1.15;
+}
+
+#classic .cl-mini-v {
+  color: var(--orange-dark);
+  font-family: var(--font-data);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+#classic .cl-mini-l {
+  font-size: var(--fs-md);
+}
+
+/* Küçük resimler: kaydırmasız ızgara, sabit oranlı kutu (oran li'de; düğme ve görsel kutuyu doldurur) */
+#classic .cl-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+  padding: 0 2px 2px 0;
+}
+
+#classic .cl-gallery li {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+}
+
+/* Dikey telefon ekranları: yan yana dikey kutular; kutu oranı görselle aynı olduğundan kırpılmaz.
+   Sütunlar esner (dar ekranda küçülür, taşmaz), geniş kartta 96 px'i geçmez. */
+#classic .cl-gallery--portrait {
+  grid-template-columns: repeat(var(--cl-n, 5), minmax(0, 96px));
+}
+
+#classic .cl-gallery--portrait li {
+  aspect-ratio: 720 / 1480;
+}
+
+#classic .cl-gallery--portrait .cl-thumb img {
+  object-position: center top;
+}
+
+#classic .cl-thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid var(--wood-dark);
+  border-radius: 0;
+  background: var(--cream-dark);
+  cursor: zoom-in;
+  box-shadow: 2px 2px 0 var(--cl-hard);
+  transition:
+    transform var(--cl-t-fast) var(--cl-ease),
+    box-shadow var(--cl-t-fast) var(--cl-ease),
+    border-color var(--cl-t-fast) var(--cl-ease);
+}
+
+@media (hover: hover) {
+  #classic .cl-thumb:hover {
+    border-color: var(--orange);
+    transform: translateY(-2px);
+    box-shadow: 2px 4px 0 var(--cl-hard);
+  }
+}
+
+#classic .cl-thumb:focus-visible {
+  border-color: var(--orange);
+}
+
+/* Basılınca aşağı oturur (hover kuralından sonra gelir: fare üstündeyken de geçerli) */
+#classic .cl-thumb:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--cl-hard);
+}
+
+#classic .cl-thumb img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Kaynağı henüz atanmamış görsel kırık simge göstermesin */
+#classic .cl-thumb img:not([src]) {
+  visibility: hidden;
+}
+
+#classic .cl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+#classic .cl-tags li {
+  max-width: 100%;
+  padding: 1px 8px 2px;
+  border: 2px solid var(--wood-dark);
+  background: var(--cream-dark);
+  font-size: var(--fs-md);
+  line-height: var(--lh-ui);
+  /* Etiket tıklanamaz: yalnızca renk/çerçeve tepkisi (kalkma ya da basılma yok) */
+  transition:
+    background-color var(--cl-t-fast) var(--cl-ease),
+    border-color var(--cl-t-fast) var(--cl-ease),
+    color var(--cl-t-fast) var(--cl-ease);
+}
+
+@media (hover: hover) {
+  #classic .cl-tags li:hover {
+    border-color: var(--orange-dark);
+    background: var(--cl-card);
+    color: var(--orange-dark);
+  }
+}
+
+/* Düğme satırı, altında tam genişlikte not(lar) */
+#classic .cl-linkbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+#classic .cl-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 12px;
+}
+
+#classic .cl-links li {
+  max-width: 100%;
+}
+
+#classic .cl-link-note {
+  color: #6b5a50;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-ui);
+}
+
+/* Öne çıkan (en yeni) proje: tam genişlik, görsel solda */
+@media (min-width: 821px) {
+  #classic .cl-card--feat {
+    grid-column: 1 / -1;
+    flex-direction: row;
+  }
+
+  #classic .cl-card--feat .cl-cover {
+    flex: 0 0 48%;
+    aspect-ratio: auto;
+    min-height: 300px;
+    border-right: 4px solid var(--wood-dark);
+    border-bottom: 0;
+  }
+
+  #classic .cl-card--feat .cl-card-title {
+    font-size: var(--fs-xl);
+  }
+
+  #classic .cl-card--feat .cl-card-body {
+    gap: 14px;
+    padding: 24px 26px 26px;
+  }
+
+  #classic .cl-card--feat .cl-card-sum,
+  #classic .cl-card--feat .cl-find li {
+    font-size: var(--cl-fs-body);
+    line-height: 1.4;
+  }
+}
+
+/* ---------- Deneyim / Eğitim ---------- */
+
+#classic .cl-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+#classic .cl-two > :only-child {
+  grid-column: 1 / -1;
+}
+
+/* Aktiviteler ve Projeler: tam genişlikte iki zaman çizgisi yan yana */
+#classic .cl-act {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px;
+  align-items: start;
+}
+
+/* Çizgi listenin kenarlığı değil: her kayıt kendi parçasını taşır (::after), parçalar uç uca tek çizgi olur */
+#classic .cl-tl {
+  margin-left: 8px;
+  padding-left: 28px; /* 4px çizgi + 24px boşluk */
+}
+
+#classic .cl-tl-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: var(--cl-gap);
+}
+
+#classic .cl-tl-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Okul logosu: pixel çerçeveli kare kutu */
+#classic .cl-logo {
+  flex: none;
+  display: block;
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  border: 3px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow: 3px 3px 0 var(--cl-hard);
+}
+
+#classic .cl-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Logolu ve logosuz kayıtlar aynı listede ise metin aynı hizadan başlasın */
+#classic .cl-tl:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text {
+  margin-left: 78px;
+}
+
+#classic .cl-tl-item:last-child {
+  padding-bottom: 0;
+}
+
+#classic .cl-tl-item::before {
+  content: '';
+  position: absolute;
+  z-index: 1; /* nokta çizginin üstünde */
+  left: -36px;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  border: 4px solid var(--wood-dark);
+  background: var(--orange);
+}
+
+/* Çizgi parçası: kaydın tüm yüksekliği (alt boşluğu dahil); ekseni noktanın ortası (-26px) */
+#classic .cl-tl-item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -28px;
+  border-left: 4px solid var(--wood);
+}
+
+/* Hâlâ devam eden kayıtlar yeşil, bitmiş olanlar turuncu */
+#classic .cl-tl-item.is-current::before {
+  background: var(--green);
+}
+
+#classic .cl-tl-period {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 2px solid var(--wood-dark);
+  background: var(--cl-card);
+  color: var(--orange-dark);
+  font-family: var(--font-data);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: var(--ls-data);
+}
+
+#classic .cl-tl-title {
+  margin-top: 7px;
+  font-family: var(--cl-head);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: var(--lh-head);
+  overflow-wrap: anywhere;
+}
+
+#classic .cl-tl-org {
+  color: var(--wood);
+  font-size: var(--fs-md);
+  line-height: 1.3;
+}
+
+#classic .cl-tl-note {
+  margin-top: 4px;
+  line-height: var(--cl-lh);
+}
+
+/* Aynı kurumdaki görevler: ana çizgiden girintili ince çizgi, küçük kare noktalar */
+#classic .cl-roles {
+  position: relative;
+  margin: 10px 0 0 4px;
+  padding: 2px 0 2px 20px; /* 2px çizgi + 18px boşluk */
+  list-style: none;
+}
+
+#classic .cl-roles::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-left: 2px solid var(--wood);
+}
+
+#classic .cl-roles-item {
+  position: relative;
+}
+
+#classic .cl-roles-item + .cl-roles-item {
+  margin-top: 10px;
+}
+
+/* Çizgi ekseni öğenin 19px solunda (18 dolgu + 2px çizginin yarısı); 12px nokta ona ortalanır */
+#classic .cl-roles-item::before {
+  content: '';
+  position: absolute;
+  left: -25px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--wood-dark);
+  background: var(--orange);
+}
+
+#classic .cl-roles-item.is-current::before {
+  background: var(--green);
+}
+
+#classic .cl-roles-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+}
+
+#classic .cl-roles-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--cl-head);
+  font-size: var(--cl-fs-body);
+  font-weight: 400;
+  line-height: var(--lh-head);
+  overflow-wrap: anywhere;
+}
+
+#classic .cl-roles-now {
+  flex: none;
+  align-self: center;
+  padding: 0 5px 1px;
+  border: 2px solid var(--wood-dark);
+  background: var(--green);
+  color: var(--ink);
+  font-family: var(--font-data);
+  font-size: var(--fs-xs);
+  line-height: 1.1;
+  letter-spacing: var(--ls-data);
+}
+
+#classic .cl-roles-period {
+  margin: 0;
+  color: var(--wood);
+  font-family: var(--font-data);
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+  letter-spacing: var(--ls-data);
+}
+
+#classic .cl-roles-note {
+  max-width: var(--cl-measure);
+  margin: 2px 0 0;
+  line-height: var(--cl-lh);
+}
+
+/* Sağ sütun kartları: Sertifikalar, Diller */
+#classic .cl-certs,
+#classic .cl-langs {
+  margin-top: var(--cl-gap);
+  padding: calc(var(--cl-pad) - 2px) var(--cl-pad) var(--cl-pad);
+  border: 4px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow: 6px 6px 0 var(--cl-hard);
+}
+
+#classic .cl-h2 + .cl-certs,
+#classic .cl-h2 + .cl-langs {
+  margin-top: 0;
+}
+
+#classic .cl-cert-list li {
+  position: relative;
+  padding: 4px 0 4px 24px;
+  line-height: 1.3;
+}
+
+#classic .cl-cert-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 12px;
+  width: 10px;
+  height: 10px;
+  background: var(--orange);
+  box-shadow: 2px 2px 0 var(--wood-dark);
+}
+
+/* ---------- Yetenekler ---------- */
+
+/* Sütun sayısı grup sayısına uyar (3 grup = 3 sütun); dar ekranda kendiliğinden azalır */
+#classic .cl-skills {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--cl-gap);
+}
+
+#classic .cl-skillcard {
+  padding: calc(var(--cl-pad) - 2px) var(--cl-pad) var(--cl-pad);
+  border: 4px solid var(--wood-dark);
+  background: var(--cl-card);
+  box-shadow: 6px 6px 0 var(--cl-hard);
+  transition:
+    transform var(--cl-t-fast) var(--cl-ease),
+    box-shadow var(--cl-t-fast) var(--cl-ease);
+}
+
+@media (hover: hover) {
+  #classic .cl-skillcard:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 8px 0 var(--cl-hard);
+  }
+}
+
+#classic .cl-skill + .cl-skill {
+  margin-top: 12px;
+}
+
+#classic .cl-skill-name {
+  display: block;
+  margin-bottom: 4px;
+  line-height: var(--lh-ui);
+}
+
+#classic .cl-lvl {
+  display: flex;
+  gap: 4px;
+}
+
+#classic .cl-lvl-b {
+  flex: 1 1 0;
+  height: 13px;
+  border: 2px solid var(--wood-dark);
+  background: var(--cream-dark);
+  /* Dolma, kartın kendi belirme gecikmesinden (--cl-d) sonra başlar */
+  transition:
+    background-color 0.01s linear calc(var(--cl-d, 0ms) + 200ms + var(--i, 0) * var(--cl-step)),
+    box-shadow 0.01s linear calc(var(--cl-d, 0ms) + 200ms + var(--i, 0) * var(--cl-step));
+}
+
+#classic .cl-lvl-b.is-on {
+  background: var(--green);
+  box-shadow: inset -2px -2px 0 var(--green-dark);
+}
+
+/* Kart görünene kadar bloklar boş; görününce sırayla dolar */
+#classic .cl-reveal:not(.is-in) .cl-lvl-b.is-on {
+  background: var(--cream-dark);
+  box-shadow: none;
+  transition: none;
+}
+
+/* Animasyonsuz açılan (gezinme, odak, güvenlik ağı) ya da süresi dolan öğede bloklar beklemeden dolu */
+#classic .cl-reveal.is-done .cl-lvl-b {
+  transition: none;
+}
+
+#classic .cl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin-top: 20px;
+  color: #6b5a50;
+  font-size: var(--fs-md);
+  line-height: var(--lh-ui);
+}
+
+#classic .cl-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#classic .cl-legend-blocks {
+  display: inline-flex;
+  gap: 2px;
+}
+
+#classic .cl-legend-blocks .cl-lvl-b {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+/* ---------- İletişim kapanışı ---------- */
+
+#classic .cl-section--contact {
+  margin-top: calc(var(--cl-sec) + 12px);
+  padding: 64px 0 68px;
+  border-top: 4px solid var(--wood-dark);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%);
+  background-position:
+    0 0,
+    8px 8px;
+  background-size: 16px 16px;
+  color: var(--cream);
+}
+
+#classic .cl-contact-kicker {
+  color: #f39a62;
+  font-family: var(--cl-head);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+}
+
+#classic .cl-cta {
+  margin-top: 6px;
+  font-family: var(--cl-head);
+  font-size: clamp(var(--fs-2xl), 6vw, 60px);
+  font-weight: 400;
+  line-height: 1.06;
+  text-shadow: 4px 4px 0 var(--orange-dark);
+}
+
+#classic .cl-contact-note {
+  max-width: 34em;
+  margin-top: 16px;
+  font-size: var(--fs-lg);
+  line-height: 1.3;
+}
+
+#classic .cl-mail-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 22px;
+}
+
+#classic.cl-root .cl-mail {
+  min-width: 0;
+  padding-block: 6px; /* dokunma hedefi: 29 → 41px */
+  color: var(--focus);
+  font-family: var(--font-data);
+  font-size: clamp(22px, 6.4vw, var(--fs-xl));
+  line-height: var(--lh-ui);
+  letter-spacing: var(--ls-data);
+  overflow-wrap: anywhere;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 5px;
+}
+
+#classic .cl-copy-status {
+  min-width: 6em;
+  color: #9fe0b2;
+}
+
+#classic .cl-contact .cl-actions {
+  margin-top: 22px;
+}
+
+#classic .cl-foot {
+  padding: 16px 0 calc(26px + var(--safe-b));
+  border-top: 4px solid var(--wood-dark);
+  background: #1f1723;
+  color: var(--cream-dark);
+  font-size: var(--fs-md);
+  line-height: 1.3;
+}
+
+/* ---------- Kaydırınca belirme (sınıfı JS ekler; JS yoksa içerik hep görünür) ---------- */
+
+/* Sınıflar (classic.js):
+   .cl-reveal  gözlenen öğe; görünene kadar gizli.
+   .is-in      göründü: animasyon oynar. --cl-d: aynı anda görünen kardeşler arası kademe gecikmesi (JS yazar).
+   .is-done    animasyon bitti / atlandı: hiçbir belirme kuralı kalmaz, öğe son hâlindedir.
+   .cl-seq     çocukları tek tek gelen kapsayıcı (--cl-seq-d: grup gecikmesi, çocukta --cl-i: sıra).
+   Gizleme yalnızca tek kuraldır (.cl-reveal:not(.is-in)); geri kalan her şey "backwards" dolgulu animasyondur,
+   yani animasyon oynamazsa içerik görünür kalır. Tüm blok ekran + hareket serbestken geçerlidir:
+   yazdırmada ve hareket azaltmada hiçbir başlangıç durumu uygulanmaz. */
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  #classic .cl-reveal:not(.is-in) {
+    opacity: 0;
+  }
+
+  #classic .cl-reveal.is-in:not(.is-done) {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) var(--cl-d, 0ms) backwards;
+  }
+
+  /* Kartlar: çok hafif ölçekle */
+  #classic .cl-stat.cl-reveal.is-in:not(.is-done),
+  #classic .cl-high.cl-reveal.is-in:not(.is-done),
+  #classic .cl-card.cl-reveal.is-in:not(.is-done),
+  #classic .cl-certs.cl-reveal.is-in:not(.is-done),
+  #classic .cl-langs.cl-reveal.is-in:not(.is-done),
+  #classic .cl-skillcard.cl-reveal.is-in:not(.is-done) {
+    animation-name: cl-in-card;
+  }
+
+  /* Sıralı küçük öğeler: kapsayıcının gecikmesi + grup gecikmesi + sıra */
+  #classic .cl-reveal.is-in:not(.is-done) .cl-seq > *,
+  #classic .cl-reveal.cl-seq.is-in:not(.is-done) > * {
+    --cl-rise: 8px;
+    animation: cl-in var(--cl-t-med) var(--cl-ease) calc(var(--cl-d, 0ms) + var(--cl-seq-d, 60ms) + var(--cl-i, 0) * var(--cl-step)) backwards;
+  }
+
+  /* Bölüm başlığı: başlık belirir, kare "pat" diye gelir, alt çizgi soldan sağa adım adım çizilir */
+  #classic .cl-h2.cl-reveal.is-in:not(.is-done)::before {
+    animation: cl-pop var(--cl-t-pop) steps(1, end) calc(var(--cl-d, 0ms) + 60ms) backwards;
+  }
+
+  #classic .cl-h2.cl-reveal.is-in:not(.is-done)::after {
+    transform-origin: left center;
+    animation: cl-draw-x var(--cl-t-slow) steps(10, end) calc(var(--cl-d, 0ms) + 80ms) backwards;
+  }
+
+  /* Zaman çizgisi: nokta "pat" -> çizgi parçası aşağı uzar -> metin açılır */
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) {
+    animation: none;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done)::before {
+    animation: cl-pop var(--cl-t-pop) steps(1, end) var(--cl-d, 0ms) backwards;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done)::after {
+    transform-origin: center top;
+    animation: cl-draw-y var(--cl-t-fast) steps(5, end) calc(var(--cl-d, 0ms) + 100ms) backwards;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) > * {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) calc(var(--cl-d, 0ms) + 120ms) backwards;
+  }
+
+  /* Alt görevler: üst kayıttan sonra ince çizgi, ardından görevler tek tek (nokta -> metin); "şimdi" en son yanar */
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) .cl-roles::before {
+    transform-origin: center top;
+    animation: cl-draw-y var(--cl-t-med) steps(6, end) calc(var(--cl-d, 0ms) + 260ms) backwards;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) .cl-roles-item::before {
+    animation: cl-pop var(--cl-t-pop) steps(1, end) calc(var(--cl-d, 0ms) + 300ms + var(--cl-i, 0) * var(--cl-step)) backwards;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) .cl-roles-item > * {
+    --cl-rise: 6px;
+    animation: cl-in var(--cl-t-med) var(--cl-ease) calc(var(--cl-d, 0ms) + 340ms + var(--cl-i, 0) * var(--cl-step)) backwards;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) .cl-roles-now {
+    animation: cl-blink var(--cl-t-med) steps(1, end) calc(var(--cl-d, 0ms) + 620ms + var(--cl-i, 0) * var(--cl-step)) backwards;
+  }
+
+  /* Devam eden kayıtların yeşil noktası: çok yavaş, iki kareli nabız (boyut değişmez) */
+  #classic .cl-tl-item.is-current::before,
+  #classic .cl-roles-item.is-current::before {
+    animation: cl-pulse 2.4s steps(1, end) 1.2s infinite;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-current.is-in:not(.is-done)::before {
+    animation:
+      cl-pop var(--cl-t-pop) steps(1, end) var(--cl-d, 0ms) backwards,
+      cl-pulse 2.4s steps(1, end) 1.2s infinite;
+  }
+
+  #classic .cl-tl-item.cl-reveal.is-in:not(.is-done) .cl-roles-item.is-current::before {
+    animation:
+      cl-pop var(--cl-t-pop) steps(1, end) calc(var(--cl-d, 0ms) + 300ms + var(--cl-i, 0) * var(--cl-step)) backwards,
+      cl-pulse 2.4s steps(1, end) 1.2s infinite;
+  }
+}
+
+/* ---------- Açılış (hero) ----------
+   Yalnızca sayfa yüklemesinden sonra görünüm ilk kez açıldığında: JS .cl-hero'ya .is-intro ekler ve
+   unvanı harflere (.cl-ch) böler; sıra tamamen bu gecikmelerle yürür. Bitince JS sınıfı kaldırır,
+   böylece her kural kalkar ve hero düz, tam metin kalır. Hiçbir kural elemanı kalıcı gizlemez:
+   gizleme yalnızca "backwards" dolgulu animasyonun ilk karesidir (animasyon oynamazsa içerik görünür).
+   Zaman çizelgesi (ms, perde açılışı için 120 ms başlangıç dahil):
+   120 fotoğraf yerine oturur -> 230 ad -> 420..1280 unvan yazılır (imleç harfle gider, sonda 3 kez yanıp söner)
+   -> 1240 tanıtım, +60 konum, +120 düğmeler. */
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  #classic .cl-hero.is-intro {
+    --hi-photo: 120ms;
+    --hi-name: 230ms;
+    --hi-type: 420ms;
+    --hi-type-dur: 860ms; /* classic.js: INTRO_TYPE */
+    --hi-rest: 1240ms;
+  }
+
+  #classic .cl-hero.is-intro .cl-photo {
+    animation: cl-hero-photo var(--cl-t-pop) steps(1, end) var(--hi-photo) backwards;
+  }
+
+  #classic .cl-hero.is-intro .cl-name {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) var(--hi-name) backwards;
+  }
+
+  #classic .cl-hero.is-intro .cl-tagline {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) var(--hi-rest) backwards;
+  }
+
+  #classic .cl-hero.is-intro .cl-loc {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) calc(var(--hi-rest) + var(--cl-step)) backwards;
+  }
+
+  #classic .cl-hero.is-intro .cl-hero-text .cl-actions {
+    animation: cl-in var(--cl-t-med) var(--cl-ease) calc(var(--hi-rest) + 2 * var(--cl-step)) backwards;
+  }
+
+  /* Daktilo: her harf kendi gecikmesinde bir karede belirir (opaklık 0 -> 1, tek adım).
+     Yer, tam metin baştan yerleştiği için ayrılmıştır; yalnızca opaklık değişir. */
+  #classic .cl-hero.is-intro .cl-ch {
+    position: relative;
+    animation: cl-type 1ms steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms)) backwards;
+  }
+
+  /* İmleç: harfin sağ kenarında, yalnızca o harfin kare süresince görünür (taşıyıcı değil, süs; yerleşimi etkilemez) */
+  #classic .cl-hero.is-intro .cl-ch::after {
+    content: '';
+    position: absolute;
+    left: 100%;
+    top: 0.14em;
+    bottom: 0.06em;
+    width: 0.14em;
+    margin-left: 0.04em;
+    background: currentColor;
+    opacity: 0;
+    animation: cl-cur var(--ty-step, 20ms) steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms)) forwards;
+  }
+
+  /* Son harfte imleç 3 kez yanıp söner, sonra kalmaz */
+  #classic .cl-hero.is-intro .cl-ch.is-last::after {
+    animation: cl-cur-end 480ms steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms)) forwards;
+  }
+
+  /* Kopyala: kısa "pat" ve durum metni */
+  #classic .cl-copy.is-pop {
+    animation: cl-pat var(--cl-t-pop) steps(1, end);
+  }
+
+  #classic .cl-copy-status.is-pop {
+    --cl-rise: 4px;
+    animation: cl-in var(--cl-t-fast) var(--cl-ease) backwards;
+  }
+}
+
+/* steps(1, end) ile üç kare: küçük -> taşkın -> yerinde (hero fotoğrafı; ilk karede gizli) */
+@keyframes cl-hero-photo {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  33% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  66% {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes cl-type {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cl-cur {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* steps(1, end): aç, kapa, aç, kapa, aç, kapa (3 yanıp sönme) */
+@keyframes cl-cur-end {
+  0%,
+  33.4% {
+    opacity: 1;
+  }
+  16.7%,
+  50%,
+  83.4%,
+  100% {
+    opacity: 0;
+  }
+  66.7% {
+    opacity: 1;
+  }
+}
+
+/* Düğmeye "pat": üç kare, taşma yok */
+@keyframes cl-pat {
+  0% {
+    transform: scale(0.94);
+  }
+  33% {
+    transform: scale(1.06);
+  }
+  66% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cl-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--cl-rise, 12px));
+  }
+}
+
+@keyframes cl-in-card {
+  from {
+    opacity: 0;
+    transform: translateY(var(--cl-rise, 12px)) scale(0.98);
+  }
+}
+
+/* steps(1, end) ile üç kare: küçük -> taşkın -> yerinde */
+@keyframes cl-pop {
+  0% {
+    transform: scale(0);
+  }
+  33% {
+    transform: scale(0.5);
+  }
+  66% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cl-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes cl-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* steps(1, end) ile iki kare: yok -> iri -> yerinde */
+@keyframes cl-blink {
+  0% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* steps(1, end) ile iki kare: düz -> parlak hale */
+@keyframes cl-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 166, 106, 0);
+    filter: none;
+  }
+  50%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(79, 166, 106, 0.45);
+    filter: brightness(1.18);
+  }
+}
+
+/* ---------- Lightbox (body altında) ---------- */
+
+body.is-classic.cl-lb-open {
+  overflow: hidden;
+}
+
+.cl-lb {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: calc(12px + var(--safe-t)) calc(14px + var(--safe-r)) calc(14px + var(--safe-b)) calc(14px + var(--safe-l));
+  background: rgba(24, 14, 28, 0.93);
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  line-height: 1.3;
+  touch-action: pan-y pinch-zoom;
+}
+
+.cl-lb-top {
+  flex: none;
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cl-lb-stage {
+  flex: 1 1 0;
+  min-height: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y pinch-zoom;
+}
+
+/* Görsel alanı (üst) ve altyazı (alt) ayrı satırlardır; genişliği JS (fit) hesaplar: altyazı görsele binmez. */
+.cl-lb-frame {
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-width: min(1120px, calc(100% - 16px));
+  margin: 8px;
+  border: 4px solid var(--wood-dark);
+  background: var(--cream);
+  box-shadow:
+    0 0 0 4px var(--wood),
+    0 0 0 8px var(--wood-dark),
+    10px 10px 0 8px rgba(0, 0, 0, 0.55);
+  will-change: transform;
+}
+
+.cl-lb-img {
+  flex: none;
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+  image-rendering: auto;
+}
+
+.cl-lb-cap {
+  flex: none;
+  padding: 8px 14px 10px;
+  border-top: 4px solid var(--wood-dark);
+  color: var(--ink);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.cl-lb-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.cl-lb-count {
+  min-width: 4.5em;
+  font-family: var(--font-data);
+  font-size: var(--fs-lg);
+  letter-spacing: var(--ls-data);
+  text-align: center;
+}
+
+.cl-lb-btn {
+  min-width: 48px;
+  height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 3px solid var(--wood-dark);
+  border-radius: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-head);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow:
+    inset -3px -3px 0 var(--cream-dark),
+    3px 3px 0 var(--shadow);
+}
+
+.cl-lb-btn:hover {
+  background: #fff3d6;
+}
+
+@media (hover: hover) {
+  .cl-lb-btn:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.cl-lb-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset 3px 3px 0 var(--cream-dark),
+    1px 1px 0 var(--shadow);
+}
+
+.cl-lb-close {
+  background: var(--orange);
+  color: #fff6e0;
+  box-shadow:
+    inset -3px -3px 0 var(--orange-dark),
+    3px 3px 0 var(--shadow);
+}
+
+.cl-lb-close:hover {
+  background: #e8763f;
+}
+
+.cl-lb-close:active {
+  box-shadow:
+    inset 3px 3px 0 var(--orange-dark),
+    1px 1px 0 var(--shadow);
+}
+
+.cl-lb :focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* ---------- Orta ve dar ekranlar ---------- */
+
+@media (max-width: 820px) {
+  #classic .cl-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #classic .cl-about,
+  #classic .cl-projects,
+  #classic .cl-two,
+  #classic .cl-act {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #classic .cl-two,
+  #classic .cl-act {
+    gap: 0;
+  }
+
+  #classic .cl-two > * + * {
+    margin-top: var(--cl-sec);
+  }
+
+  /* Tek sütunda iki zaman çizgisi tek liste gibi akar: çizgi kopmaz, logosuz kayıtlar aynı hizada */
+  #classic .cl-act > .cl-tl:not(:last-child) > .cl-tl-item:last-child {
+    padding-bottom: var(--cl-gap);
+  }
+
+  #classic .cl-act:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text {
+    margin-left: 78px;
+  }
+
+  #classic .cl-about {
+    gap: var(--cl-gap);
+  }
+}
+
+@media (max-width: 640px) {
+  #classic.cl-root {
+    --cl-sec: 48px;
+    --cl-head-gap: 18px;
+    --cl-gap: 16px;
+    --cl-pad: 14px;
+  }
+
+  #classic .cl-wrap,
+  #classic .cl > .cl-section--about,
+  #classic .cl > .cl-section--activities,
+  #classic .cl > .cl-section--projects,
+  #classic .cl > .cl-section--skills {
+    width: min(100% - 28px, 1040px);
+  }
+
+  #classic .cl-hero {
+    padding: 30px 0 84px;
+  }
+
+  #classic .cl-hero-in {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  #classic .cl-photo {
+    width: 136px;
+    height: 136px;
+  }
+
+  #classic .cl-tagline,
+  #classic .cl-contact-note {
+    font-size: var(--fs-md);
+    line-height: var(--lh-body);
+  }
+
+  #classic .cl-section--numbers {
+    margin-top: -48px;
+  }
+
+  #classic .cl-stat {
+    padding: 12px 8px 14px;
+  }
+
+  /* "1,06 milyar" dar kartta tek satıra sığsın */
+  #classic .cl-stat-v {
+    font-size: clamp(22px, 7vw, var(--fs-xl));
+  }
+
+  #classic .cl-stat-l {
+    font-size: var(--fs-sm);
+  }
+
+  #classic .cl-h2 {
+    font-size: var(--fs-xl);
+  }
+
+  #classic .cl-logo {
+    width: 52px;
+    height: 52px;
+    padding: 3px;
+  }
+
+  #classic .cl-tl-item {
+    gap: 12px;
+  }
+
+  #classic .cl-tl:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text,
+  #classic .cl-act:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text {
+    margin-left: 64px;
+  }
+
+  /* Dar ekranda girinti azalır; nokta ekseni 15px solda kalır */
+  #classic .cl-roles {
+    margin-left: 2px;
+    padding-left: 16px; /* 2px çizgi + 14px boşluk */
+  }
+
+  #classic .cl-roles-item::before {
+    left: -21px;
+  }
+
+  #classic .cl-section--contact {
+    padding: 46px 0 50px;
+  }
+
+  #classic.cl-root .cl-nav a {
+    padding: 4px 10px;
+  }
+}
+
+/* ---------- Hareket azaltma ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  #classic .cl-hero-bg {
+    animation: none;
+    transform: translateX(-12%);
+  }
+
+  #classic .cl-reveal:not(.is-in) {
+    opacity: 1;
+  }
+
+  #classic .cl-reveal:not(.is-in) .cl-lvl-b.is-on {
+    background: var(--green);
+    box-shadow: inset -2px -2px 0 var(--green-dark);
+  }
+
+  #classic.cl-root .cl-btn:hover,
+  #classic .cl-card:hover,
+  #classic .cl-card:has(:focus-visible),
+  #classic .cl-skillcard:hover,
+  #classic .cl-stat:hover,
+  #classic .cl-thumb:hover,
+  #classic .cl-cover img,
+  #classic .cl-card:hover .cl-cover img,
+  #classic .cl-card:has(.cl-cover-btn:focus-visible) .cl-cover img {
+    transform: none;
+  }
+
+  /* Hareket azaltma: geçiş yok, rozet hover/odakta anında belirir */
+  #classic .cl-zoom,
+  #classic .cl-cover img,
+  #classic .cl-card,
+  #classic .cl-stat,
+  #classic .cl-skillcard,
+  #classic .cl-thumb {
+    transition: none;
+  }
+}
+
+/* ---------- Yazdırma: sade, tek sütun ---------- */
+
+@media print {
+  /* Oyundayken yazdırılsa bile CV çıksın */
+  #classic[hidden] {
+    display: block !important;
+  }
+
+  .cl-lb,
+  #classic .cl-bar,
+  #classic .cl-hero-bg,
+  #classic .cl-hero::after,
+  #classic .cl-cover > img,
+  #classic .cl-cover > .cl-ph,
+  #classic .cl-cover > .cl-cover-btn,
+  #classic .cl-zoom,
+  #classic .cl-gallery,
+  #classic .cl-more,
+  #classic .cl-copy,
+  #classic .cl-copy-status,
+  #classic .cl-legend-blocks,
+  #classic .cl-foot {
+    display: none !important;
+  }
+
+  #classic.cl-root {
+    min-height: 0;
+    background: #fff;
+    color: #000;
+    font-size: 13pt;
+    line-height: 1.25;
+  }
+
+  #classic .cl {
+    overflow: visible;
+  }
+
+  #classic .cl-find.is-collapsed {
+    display: block;
+  }
+
+  /* Kısaltılmış özet tam basılır */
+  #classic .cl-card-sum.is-clamped,
+  #classic .cl-stat-l {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
+
+  #classic .cl-card-sum,
+  #classic .cl-find li,
+  #classic .cl-card--feat .cl-card-sum,
+  #classic .cl-card--feat .cl-find li {
+    max-width: none;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  #classic .cl-tl:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text,
+  #classic .cl-act:has(.cl-logo) .cl-tl-item:not(:has(.cl-logo)) .cl-tl-text {
+    margin-left: calc(40pt + 14px);
+  }
+
+  #classic .cl-act > .cl-tl:not(:last-child) > .cl-tl-item:last-child {
+    padding-bottom: var(--cl-gap);
+  }
+
+  #classic .cl-logo {
+    width: 40pt;
+    height: 40pt;
+    padding: 2pt;
+    border: 1pt solid #888;
+    background: none;
+  }
+
+  #classic.cl-root * {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  #classic .cl-wrap,
+  #classic .cl > .cl-section--about,
+  #classic .cl > .cl-section--activities,
+  #classic .cl > .cl-section--projects,
+  #classic .cl > .cl-section--skills {
+    width: auto;
+    margin: 0;
+  }
+
+  #classic .cl-hero,
+  #classic .cl-section--contact,
+  #classic .cl-stat,
+  #classic .cl-high,
+  #classic .cl-card,
+  #classic .cl-mini li,
+  #classic .cl-tags li,
+  #classic .cl-certs,
+  #classic .cl-langs,
+  #classic .cl-skillcard,
+  #classic .cl-tl-period {
+    background: none !important;
+    color: #000;
+  }
+
+  #classic .cl-hero {
+    padding: 0 0 10pt;
+    border-bottom: 2pt solid #000;
+  }
+
+  #classic .cl-hero-in {
+    gap: 16pt;
+  }
+
+  #classic .cl-photo {
+    width: 84pt;
+    height: 84pt;
+    margin: 0;
+    border: 1pt solid #000;
+  }
+
+  #classic .cl-name {
+    font-size: 24pt;
+  }
+
+  #classic .cl-title,
+  #classic .cl-loc,
+  #classic .cl-contact-kicker,
+  #classic .cl-stat-v,
+  #classic .cl-mini-v,
+  #classic .cl-h3,
+  #classic .cl-find-h,
+  #classic .cl-tl-period,
+  #classic .cl-tl-org,
+  #classic .cl-legend,
+  #classic .cl-link-note {
+    color: #000;
+  }
+
+  #classic .cl-tagline,
+  #classic .cl-contact-note {
+    font-size: 13pt;
+  }
+
+  #classic .cl-section--numbers {
+    margin-top: 10pt;
+  }
+
+  /* A4 genişliği 820px kırılımının altında kaldığı için 2×2'ye düşüyordu: baskıda tek satır */
+  #classic .cl-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6pt;
+  }
+
+  #classic .cl-stat-v {
+    font-size: 16pt;
+  }
+
+  #classic .cl-stat-l {
+    font-size: 11pt;
+  }
+
+  #classic .cl > .cl-section--about,
+  #classic .cl > .cl-section--activities,
+  #classic .cl > .cl-section--projects,
+  #classic .cl > .cl-section--skills,
+  #classic .cl-two,
+  #classic .cl-two > * + * {
+    margin-top: 16pt;
+  }
+
+  #classic .cl-about,
+  #classic .cl-projects,
+  #classic .cl-two,
+  #classic .cl-act,
+  #classic .cl-skills {
+    display: block;
+  }
+
+  #classic .cl-h2 {
+    margin-bottom: 8pt;
+    padding-bottom: 3pt;
+    border-bottom: 1pt solid #000;
+    color: #000;
+    font-size: 16pt;
+    break-after: avoid;
+  }
+
+  #classic .cl-h2::before,
+  #classic .cl-h2::after {
+    display: none;
+  }
+
+  #classic .cl-stat,
+  #classic .cl-high,
+  #classic .cl-card,
+  #classic .cl-certs,
+  #classic .cl-langs,
+  #classic .cl-skillcard,
+  #classic .cl-mini li,
+  #classic .cl-tags li {
+    border: 1pt solid #888;
+  }
+
+  #classic .cl-card,
+  #classic .cl-high,
+  #classic .cl-certs,
+  #classic .cl-langs,
+  #classic .cl-skillcard {
+    display: block;
+    margin-top: 8pt;
+    break-inside: avoid;
+  }
+
+  /* Kapak görseli basılmaz; tarih düz metin olarak kalır */
+  #classic .cl-cover,
+  #classic .cl-card--feat .cl-cover {
+    min-height: 0;
+    aspect-ratio: auto;
+    overflow: visible;
+    border: 0;
+    background: none;
+  }
+
+  #classic .cl-date {
+    position: static;
+    display: block;
+    padding: 8pt 10pt 0;
+    border: 0;
+    background: none;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  #classic .cl-date time,
+  #classic .cl-date-new {
+    padding: 0 6pt 0 0;
+    border: 0;
+    background: none;
+    color: #000;
+  }
+
+  #classic .cl-card-body {
+    display: block;
+    padding: 4pt 10pt 8pt;
+  }
+
+  #classic .cl-card-body > * + * {
+    margin-top: 6pt;
+  }
+
+  #classic .cl-card-title,
+  #classic .cl-card--feat .cl-card-title {
+    font-size: 14pt;
+  }
+
+  #classic .cl-tl-item {
+    break-inside: avoid;
+  }
+
+  #classic .cl-tl-item::before,
+  #classic .cl-roles-item::before,
+  #classic .cl-roles-now,
+  #classic .cl-lvl-b {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #classic .cl-roles {
+    margin-top: 4pt;
+  }
+
+  #classic .cl-roles::before {
+    border-left-color: #888;
+  }
+
+  /* Sözde öğeler "*" ile eşleşmez: çizgi ve noktalar yazdırmada da tam ve hareketsiz */
+  #classic .cl-tl-item::before,
+  #classic .cl-tl-item::after,
+  #classic .cl-roles::before,
+  #classic .cl-roles-item::before {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  #classic .cl-roles-item {
+    break-inside: avoid;
+  }
+
+  #classic .cl-roles-item + .cl-roles-item {
+    margin-top: 3pt;
+  }
+
+  #classic .cl-roles-title {
+    font-size: inherit;
+  }
+
+  #classic .cl-roles-period,
+  #classic .cl-roles-now {
+    color: #000;
+  }
+
+  #classic .cl-roles-note {
+    max-width: none;
+    line-height: inherit;
+  }
+
+  #classic .cl-reveal:not(.is-in) .cl-lvl-b.is-on {
+    background: var(--green);
+  }
+
+  #classic .cl-section--contact {
+    margin-top: 16pt;
+    padding: 12pt 0 0;
+    border-top: 1pt solid #000;
+    break-inside: avoid;
+  }
+
+  #classic .cl-cta {
+    font-size: 18pt;
+  }
+
+  /* Düğmeler düz bağlantıya döner, adresleri görünür */
+  #classic.cl-root .cl-btn,
+  #classic.cl-root .cl-mail {
+    display: inline;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #000;
+    font-family: var(--font-body);
+    font-size: 13pt;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+
+  #classic.cl-root a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 10pt;
+    overflow-wrap: anywhere;
+  }
+
+  #classic .cl-actions,
+  #classic .cl-links,
+  #classic .cl-linkbox {
+    display: block;
+  }
+
+  #classic .cl-actions li,
+  #classic .cl-links li {
+    display: block;
+    margin-top: 3pt;
+  }
+
+  #classic .cl-link-note {
+    margin-top: 3pt;
+    font-size: 10pt;
+  }
+}
+
+/* Jersey tek kalınlıkta; sahte kalın rakamları (6/8) birbirine benzetiyor (genel kural style.css'te) */
+#classic,
+.cl-lb {
+  font-synthesis: none;
+}
+

@@ -1,0 +1,1766 @@
+import './classic.css';
+import { on } from '../bridge.js';
+import { lang, pick } from '../i18n.js';
+import content from '../content/content.js';
+import { sortedProjects, projectDate } from '../content/projects.js';
+import { el, extLink, safeUrl, toParagraphs, reducedMotion } from './dom.js';
+
+// Klasik görünüm: content.js'teki içeriğin tek sayfalık, hızlı okunan CV hali.
+
+// Yalnızca bu sayfaya ait metinler.
+const T = {
+  nav: { tr: 'Sayfa içi gezinme', en: 'On-page navigation' },
+  numbers: { tr: 'Sayılarla', en: 'In numbers' },
+  about: { tr: 'Hakkımda', en: 'About' },
+  highlights: { tr: 'Öne çıkanlar', en: 'Highlights' },
+  projects: { tr: 'Projeler', en: 'Projects' },
+  experience: { tr: 'Deneyim', en: 'Experience' },
+  activities: { tr: 'Aktiviteler', en: 'Activities' },
+  activitiesTitle: { tr: 'Aktiviteler ve Projeler', en: 'Activities & Projects' },
+  education: { tr: 'Eğitim', en: 'Education' },
+  certificates: { tr: 'Sertifikalar', en: 'Certificates' },
+  languages: { tr: 'Diller', en: 'Languages' },
+  skills: { tr: 'Yetenekler', en: 'Skills' },
+  contact: { tr: 'İletişim', en: 'Contact' },
+  guestbook: { tr: 'Defter', en: 'Guestbook' },
+  guestbookTitle: { tr: 'Ziyaretçi defteri', en: 'Guestbook' },
+  cta: { tr: 'Birlikte çalışalım', en: "Let's work together" },
+  findings: { tr: 'Bulgular', en: 'Findings' },
+  latest: { tr: 'En yeni', en: 'Latest' },
+  now: { tr: 'şimdi', en: 'now' },
+  more: { tr: 'Devamını göster', en: 'Show more' },
+  less: { tr: 'Daha az göster', en: 'Show less' },
+  demo: { tr: 'Canlı demo', en: 'Live demo' },
+  source: { tr: 'Kaynak kod', en: 'Source code' },
+  gallery: { tr: 'Görseller', en: 'Images' },
+  enlarge: { tr: 'büyüt', en: 'enlarge' },
+  photoAlt: { tr: 'fotoğrafı', en: 'photo' },
+  level: { tr: 'Seviye', en: 'Level' },
+  legend: [
+    { tr: 'temel / öğreniyorum', en: 'basic / learning' },
+    { tr: 'gelişiyor', en: 'developing' },
+    { tr: 'rahat kullanıyorum', en: 'comfortable' },
+    { tr: 'iyi', en: 'good' },
+    { tr: 'çok iyi', en: 'very good' },
+  ],
+  copy: { tr: 'Kopyala', en: 'Copy' },
+  copied: { tr: 'Kopyalandı!', en: 'Copied!' },
+  copyFailed: { tr: 'Kopyalanamadı', en: 'Copy failed' },
+  close: { tr: 'Kapat', en: 'Close' },
+  prev: { tr: 'Önceki görsel', en: 'Previous image' },
+  next: { tr: 'Sonraki görsel', en: 'Next image' },
+  foot: {
+    tr: 'Bu CV aslında gezilebilir bir pixel oda: sağ üstteki “Oyuna dön” düğmesiyle odama uğrayabilirsin.',
+    en: 'This CV is also a walkable pixel room: use “Back to game” at the top right to drop by.',
+  },
+  logoCredit: {
+    tr: 'Gdańsk Tech logosu: Wikimedia Commons / Asas077, CC BY-SA 3.0 (pixel görünüme uyarlandı). YTÜ logosu Yıldız Teknik Üniversitesi’nin tescilli markasıdır. Deptron ve AITT logoları ilgili takımlara aittir.',
+    en: 'Gdańsk Tech logo: Wikimedia Commons / Asas077, CC BY-SA 3.0 (adapted to pixel art). The YTU logo is a registered trademark of Yıldız Technical University. The Deptron and AITT logos belong to their respective teams.',
+  },
+  privacy: {
+    tr: 'Tarayıcında rastgele bir ziyaretçi kimliği saklanır ve hangi bölümlerin açıldığı gibi anonim kullanım bilgisi kaydedilir; ad, e-posta ve IP adresi kaydedilmez. Ziyaretçi defterine yazdığın ad ve mesaj, onaylanırsa yayınlanır.',
+    en: 'A random visitor ID is stored in your browser and anonymous usage info, such as which sections are opened, is recorded; no name, email or IP address is recorded. A name and message left in the guestbook are published if approved.',
+  },
+};
+
+const NAV = ['skills', 'projects', 'experience', 'education', 'activities', 'guestbook', 'contact'];
+const ROOM_IMAGE = './assets/room/room.webp';
+// Yazı tipleri (Jersey 15 başlık, Jersey 10 gövde) siteden yüklenir (public/assets/fonts, @font-face: src/style.css).
+
+// ---------- Pixel simgeler (12x12 ızgara, emoji yok) ----------
+
+const ICONS = {
+  home: [
+    '.....##.....',
+    '....####....',
+    '...######...',
+    '..########..',
+    '.##########.',
+    '############',
+    '..########..',
+    '..########..',
+    '..###..###..',
+    '..###..###..',
+    '..###..###..',
+    '..###..###..',
+  ],
+  book: [
+    '............',
+    '.#####.#####',
+    '.#....#....#',
+    '.#.##.#.##.#',
+    '.#....#....#',
+    '.#.##.#.##.#',
+    '.#....#....#',
+    '.#.##.#.##.#',
+    '.#....#....#',
+    '.#####.#####',
+    '......#.....',
+    '............',
+  ],
+  train: [
+    '..########..',
+    '.##########.',
+    '.#........#.',
+    '.#........#.',
+    '.#........#.',
+    '.##########.',
+    '.##########.',
+    '.#.######.#.',
+    '.##########.',
+    '..########..',
+    '..##....##..',
+    '.##......##.',
+  ],
+  calendar: [
+    '..#......#..',
+    '.##########.',
+    '.##########.',
+    '.#........#.',
+    '.#.##.##..#.',
+    '.#.##.##..#.',
+    '.#........#.',
+    '.#.##.##..#.',
+    '.#.##.##..#.',
+    '.#........#.',
+    '.##########.',
+    '............',
+  ],
+  trophy: [
+    '.##########.',
+    '#.########.#',
+    '#.########.#',
+    '#.########.#',
+    '.#.######.#.',
+    '..########..',
+    '...######...',
+    '....####....',
+    '.....##.....',
+    '.....##.....',
+    '...######...',
+    '..########..',
+  ],
+  drone: [
+    '###......###',
+    '.#........#.',
+    '.##......##.',
+    '..########..',
+    '...######...',
+    '...#.##.#...',
+    '...######...',
+    '..########..',
+    '.##......##.',
+    '.#........#.',
+    '###......###',
+    '............',
+  ],
+  // Büyüteç (artı işaretli): galerisi olan kapaklardaki "büyüt" rozeti
+  zoom: [
+    '...#####....',
+    '..#.....#...',
+    '.#...#...#..',
+    '.#...#...#..',
+    '.#.#####.#..',
+    '.#...#...#..',
+    '.#...#...#..',
+    '..#.....##..',
+    '...#####.##.',
+    '.........###',
+    '..........##',
+    '...........#',
+  ],
+  star: [
+    '.....##.....',
+    '.....##.....',
+    '....####....',
+    '############',
+    '.##########.',
+    '..########..',
+    '...######...',
+    '..########..',
+    '..###..###..',
+    '.###....###.',
+    '.##......##.',
+    '............',
+  ],
+};
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function pixelIcon(name, className = 'cl-ico') {
+  const rows = ICONS[name] || ICONS.star;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 12 12');
+  svg.setAttribute('class', className);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.setAttribute('shape-rendering', 'crispEdges');
+  rows.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      if (row[x] !== '#') {
+        x += 1;
+        continue;
+      }
+      const start = x;
+      while (row[x] === '#') x += 1;
+      const rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', String(start));
+      rect.setAttribute('y', String(y));
+      rect.setAttribute('width', String(x - start));
+      rect.setAttribute('height', '1');
+      svg.append(rect);
+    }
+  });
+  return svg;
+}
+
+// Kapağı olmayan projeler için projeye özgü renk çifti.
+const PALETTES = [
+  ['#d9622b', '#a8431a'],
+  ['#4fa66a', '#2f6f48'],
+  ['#4f86c6', '#2f5a8f'],
+  ['#c94f7c', '#8f2f55'],
+  ['#8b5a3c', '#5c3a28'],
+  ['#7a5cc0', '#4d3690'],
+];
+
+function paletteFor(id) {
+  let hash = 0;
+  for (const ch of String(id || '')) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTES[hash % PALETTES.length];
+}
+
+function placeholder(project) {
+  const [a, b] = paletteFor(project.id);
+  return el('div', { class: 'cl-ph', style: `--ph-a:${a};--ph-b:${b}`, 'aria-hidden': 'true' }, pixelIcon(project.icon));
+}
+
+// ---------- Kaydırınca belirme: zamanlama (CSS'teki --cl-step ile aynı tutulur) ----------
+
+const SEQ_STEP = 60; // küçük öğeler arası (ms)
+const SEQ_MAX = 5; // en çok 6 kademe (0..5); sonrakiler son kademeyle gelir
+const SEQ_MINI = 60; // proje kartındaki sayı kutularının başlangıç gecikmesi
+const RV_STEP = 70; // aynı anda görünen kardeş kartlar arası
+const RV_MAX = 6;
+const TL_STEP = 150; // aynı anda görünen zaman çizgisi kayıtları arası: önceki çizgi parçası inerken sıradaki nokta belirir
+const TL_MAX = 3;
+const RV_SETTLE = 2200; // bu süre sonunda animasyon kuralları kalkar (is-done); en uzun dizi ~1,3 sn
+const RV_SWEEP = 1250; // güvenlik ağı turu: iki ardışık turda (1,25-2,5 sn) ekranda olup açılmamış öğe doğrudan gösterilir
+const RV_RATIO = 0.08; // gözlemci eşiği
+const RV_BOTTOM = 0.06; // görünüm alanının alttan sayılmayan payı
+
+// ---------- Açılış (hero) ve "Devamını göster" ----------
+
+const INTRO_TYPE = 860; // unvan yazımının toplam süresi (CSS'teki --hi-type-dur ile aynı)
+const INTRO_SAFETY = 2400; // bu süre sonunda açılış sınıfları kalkar, unvan düz metne döner
+let introPlayed = false; // bu sayfa yüklemesinde bir kez oynar (oyundan dönüşte, dil değişiminde oynamaz)
+
+const MORE_MS = 280; // CSS'teki --cl-t-med ile aynı
+const MORE_SAFETY = 200;
+const MORE_EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+// Harfleri (grafem) böler: Türkçe karakterler ve birleşik işaretler tek parça kalır.
+function graphemes(text) {
+  try {
+    if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+      return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), (part) => part.segment);
+    }
+  } catch {
+    /* Segmenter yoksa ya da hata verirse Array.from */
+  }
+  return Array.from(text);
+}
+
+// ---------- Sayaçlar ----------
+
+// "1,06 milyar" -> rakam kısmı sayılır, biçim (ondalık/binlik ayırıcı) ve kalan metin korunur.
+function parseCount(text) {
+  const match = /^(\d+(?:[.,]\d+)*)(.*)$/s.exec(String(text));
+  if (!match) return null;
+  const dec = lang() === 'tr' ? ',' : '.';
+  const grp = dec === ',' ? '.' : ',';
+  const parts = match[1].split(dec);
+  if (parts.length > 2) return null;
+  const intRaw = parts[0];
+  const frac = parts[1] || '';
+  if (frac.includes(grp)) return null;
+  const grouped = intRaw.includes(grp);
+  if (grouped && !/^\d{1,3}(?:[.,]\d{3})+$/.test(intRaw)) return null;
+  const target = Number(intRaw.split(grp).join('') + frac);
+  if (!Number.isSafeInteger(target) || target <= 0) return null;
+  return { target, fracLen: frac.length, grouped, dec, grp, rest: match[2], final: String(text) };
+}
+
+function formatCount(value, c) {
+  const digits = String(value).padStart(c.fracLen + 1, '0');
+  let int = c.fracLen ? digits.slice(0, -c.fracLen) : digits;
+  const frac = c.fracLen ? digits.slice(-c.fracLen) : '';
+  if (c.grouped) int = int.replace(/\B(?=(\d{3})+(?!\d))/g, c.grp);
+  return (frac ? int + c.dec + frac : int) + c.rest;
+}
+
+const COUNT_MS = 700; // kısa: ara değer uzun süre görünmesin
+
+// delay: kartın belirme gecikmesi (ms); sayı o kadar bekleyip saymaya başlar.
+// rAF durursa (gizli sekme) zamanlayıcı, görünürlük değişimi ya da settle() son değeri yazar:
+// bitişte metin her zaman özgün metindir (c.final).
+function runCounter(node, c, ctx, delay) {
+  const start = performance.now() + delay;
+  let done = false;
+  let timer = 0;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    ctx.running.delete(node);
+    node.style.removeProperty('min-width');
+    node.textContent = c.final;
+  };
+  if (document.hidden) return; // metin zaten son hâlinde
+  ctx.running.set(node, finish);
+  timer = setTimeout(finish, delay + COUNT_MS + 400);
+  // Sayarken kutu genişliği değişmesin (satır kayması olmasın).
+  const width = node.getBoundingClientRect().width;
+  if (width > 0) node.style.minWidth = `${Math.ceil(width)}px`;
+  node.textContent = formatCount(0, c);
+  function step(now) {
+    if (done) return;
+    if (!ctx.alive) {
+      finish();
+      return;
+    }
+    const t = Math.min(1, (now - start) / COUNT_MS);
+    if (t >= 1) {
+      finish();
+      return;
+    }
+    if (t > 0) node.textContent = formatCount(Math.round(c.target * (1 - (1 - t) ** 3)), c);
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ---------- Lightbox ----------
+
+// Geçiş süreleri (ms). Her geçiş ayrıca bir zaman aşımıyla da biter (animasyon olayı gelmezse takılmasın).
+const LB_FADE = 160;
+const LB_OPEN = 240;
+const LB_CLOSE = 180;
+const LB_SLIDE = 90;
+const LB_SAFETY = 150;
+const LB_EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const LB_FRAME_EXTRA = 8; // çerçevenin 4px'lik iki kenarlığı (yatay ve dikey)
+const LB_MAX_W = 1120;
+const LB_SWIPE = 40;
+
+const lbWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// node.animate ile oynatır; bitince, iptalde, hata olursa ya da süre + güvenlik payı dolunca çözülür.
+function lbRun(node, frames, ms) {
+  return new Promise((resolve) => {
+    let timer = 0;
+    const end = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    timer = setTimeout(end, ms + LB_SAFETY);
+    try {
+      const anim = node.animate(frames, { duration: ms, easing: LB_EASE, fill: 'both' });
+      anim.onfinish = end;
+      anim.oncancel = end;
+    } catch {
+      end();
+    }
+  });
+}
+
+function lbClear(...nodes) {
+  nodes.forEach((node) => {
+    if (node.getAnimations) node.getAnimations().forEach((anim) => anim.cancel());
+  });
+}
+
+// Görseli önceden yükler; boyutlarını verir (hata ya da zaman aşımında 0).
+function lbPreload(src) {
+  return new Promise((resolve) => {
+    const probe = new Image();
+    let timer = 0;
+    const done = () => {
+      clearTimeout(timer);
+      probe.onload = null;
+      probe.onerror = null;
+      resolve({ w: probe.naturalWidth, h: probe.naturalHeight });
+    };
+    timer = setTimeout(done, 4000);
+    probe.onload = done;
+    probe.onerror = done;
+    probe.src = src;
+  });
+}
+
+function createLightbox() {
+  let items = [];
+  let index = 0;
+  let target = 0; // art arda basışlarda varılmak istenen görsel
+  let dir = 1;
+  let opener = null;
+  let title = '';
+  let state = 'closed'; // closed | opening | open | closing
+  let revealed = false;
+  let navigating = false;
+  let token = 0; // her açma/kapamada artar; eski asenkron akışları geçersiz kılar
+  let dims = { w: 0, h: 0 };
+  let resizeRaf = 0;
+
+  const img = el('img', { class: 'cl-lb-img', alt: '' });
+  const caption = el('figcaption', { class: 'cl-lb-cap' });
+  const count = el('span', { class: 'cl-lb-count', 'aria-hidden': 'true' });
+  const closeBtn = el('button', { type: 'button', class: 'cl-lb-btn cl-lb-close', onclick: () => close() }, '×');
+  const prevBtn = el('button', { type: 'button', class: 'cl-lb-btn', onclick: () => step(-1) }, '◄');
+  const nextBtn = el('button', { type: 'button', class: 'cl-lb-btn', onclick: () => step(1) }, '►');
+  const frame = el('figure', { class: 'cl-lb-frame' }, img, caption);
+  const stage = el('div', { class: 'cl-lb-stage' }, frame);
+  let swallowClick = 0;
+  const overlay = el(
+    'div',
+    {
+      class: 'cl-lb',
+      role: 'dialog',
+      'aria-modal': 'true',
+      hidden: true,
+      // Çerçeve ve düğmeler dışındaki her tıklama kapatır.
+      onclick: (event) => {
+        if (Date.now() < swallowClick) return;
+        if (!(event.target instanceof Element) || !event.target.closest('.cl-lb-frame, button')) close();
+      },
+    },
+    el('div', { class: 'cl-lb-top' }, closeBtn),
+    stage,
+    el('div', { class: 'cl-lb-nav' }, prevBtn, count, nextBtn),
+  );
+  document.body.append(overlay);
+
+  // Çerçeve, görsel alanı (üst) ile altyazı (alt) ayrı satır olacak biçimde boyutlanır:
+  // genişlik, görselin oranı ve doğal genişliği ile sahnenin kalan yüksekliğinden hesaplanır.
+  function fit() {
+    if (overlay.hidden || !dims.w || !dims.h) return;
+    const ar = dims.w / dims.h;
+    const availW = Math.max(60, stage.clientWidth - 16);
+    const availH = Math.max(60, stage.clientHeight - 16);
+    let w = Math.floor(Math.min(dims.w + LB_FRAME_EXTRA, LB_MAX_W, availW));
+    for (let i = 0; i < 6; i += 1) {
+      frame.style.width = `${w}px`;
+      const capH = caption.offsetHeight;
+      const total = (w - LB_FRAME_EXTRA) / ar + capH + LB_FRAME_EXTRA;
+      if (total <= availH + 0.5) break;
+      w = Math.floor(Math.max(60, (availH - LB_FRAME_EXTRA - capH) * ar) + LB_FRAME_EXTRA);
+    }
+  }
+
+  function onResize() {
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      if (state === 'open' || state === 'opening') fit();
+    });
+  }
+
+  function swap(to, size) {
+    index = to;
+    target = to;
+    dims = size;
+    const item = items[to];
+    const text = pick(item.caption) || title;
+    frame.classList.toggle('is-portrait', Boolean(item.portrait));
+    img.src = safeUrl(item.src);
+    img.alt = text;
+    caption.textContent = text;
+    count.textContent = `${to + 1} / ${items.length}`;
+    fit();
+  }
+
+  async function settleImage() {
+    try {
+      await Promise.race([img.decode(), lbWait(400)]);
+    } catch {
+      /* decode başarısızsa görsel yine de çizilir */
+    }
+  }
+
+  // Açan öğenin ekrandaki konumundan çerçeveye FLIP dönüşümü; ölçülemezse null.
+  function flipTransform(node) {
+    if (reducedMotion() || !node || !node.isConnected) return null;
+    const r = node.getBoundingClientRect();
+    const f = frame.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4 || !f.width || !f.height) return null;
+    if (r.bottom < 0 || r.right < 0 || r.top > window.innerHeight || r.left > window.innerWidth) return null;
+    const scale = Math.min(1.5, Math.max(0.05, r.width / f.width));
+    const dx = r.left + r.width / 2 - (f.left + f.width / 2);
+    const dy = r.top + r.height / 2 - (f.top + f.height / 2);
+    return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${scale.toFixed(4)})`;
+  }
+
+  async function step(d) {
+    if (state !== 'open' || items.length < 2) return;
+    dir = d < 0 ? -1 : 1;
+    target = (target + d + items.length) % items.length;
+    count.textContent = `${target + 1} / ${items.length}`;
+    if (navigating) return;
+    navigating = true;
+    const t = token;
+    while (target !== index) {
+      const to = target;
+      const size = await lbPreload(safeUrl(items[to].src));
+      if (t !== token || state !== 'open') return;
+      const slide = !reducedMotion();
+      if (slide) {
+        await lbRun(
+          frame,
+          [
+            { transform: 'none', opacity: 1 },
+            { transform: `translateX(${-dir * 40}px)`, opacity: 0 },
+          ],
+          LB_SLIDE,
+        );
+        if (t !== token || state !== 'open') return;
+      }
+      swap(to, size);
+      await settleImage();
+      if (t !== token || state !== 'open') return;
+      if (slide) {
+        await lbRun(
+          frame,
+          [
+            { transform: `translateX(${dir * 40}px)`, opacity: 0 },
+            { transform: 'none', opacity: 1 },
+          ],
+          LB_SLIDE,
+        );
+        if (t !== token || state !== 'open') return;
+        lbClear(frame);
+      }
+    }
+    navigating = false;
+  }
+
+  function onKey(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    } else if (state === 'closing') {
+      // Kapanırken etkileşim kesilir.
+      if (event.key === 'Tab' || event.key.startsWith('Arrow')) event.preventDefault();
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      event.stopPropagation();
+      step(event.key === 'ArrowLeft' ? -1 : 1);
+    } else if (event.key === 'Tab') {
+      // Odak lightbox içinde döner.
+      const focusables = [closeBtn, prevBtn, nextBtn].filter((node) => !node.hidden);
+      const at = focusables.indexOf(document.activeElement);
+      const move = event.shiftKey ? -1 : 1;
+      event.preventDefault();
+      focusables[(at + move + focusables.length) % focusables.length].focus();
+    }
+  }
+
+  // Dokunmatik kaydırma: yatay swipe önceki/sonraki. Dikey kaydırma ve yakınlaştırma tarayıcıda kalır (touch-action: pan-y pinch-zoom).
+  const touches = new Map();
+  let swipe = null;
+  overlay.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse') return;
+    touches.set(event.pointerId, true);
+    swipe = touches.size === 1 ? { id: event.pointerId, x: event.clientX, y: event.clientY } : null;
+  });
+  overlay.addEventListener('pointerup', (event) => {
+    const was = swipe && swipe.id === event.pointerId ? swipe : null;
+    touches.delete(event.pointerId);
+    swipe = null;
+    if (!was || state !== 'open' || items.length < 2) return;
+    const dx = event.clientX - was.x;
+    const dy = event.clientY - was.y;
+    if (Math.abs(dx) >= LB_SWIPE && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swallowClick = Date.now() + 400;
+      step(dx < 0 ? 1 : -1);
+    }
+  });
+  overlay.addEventListener('pointercancel', (event) => {
+    touches.delete(event.pointerId);
+    swipe = null;
+  });
+
+  async function open(list, start, label, from) {
+    items = (list || []).filter((item) => item && item.src);
+    if (!items.length) return;
+    if (state === 'closing') finishClose();
+    title = label || '';
+    opener = from || null;
+    const single = items.length < 2;
+    prevBtn.hidden = single;
+    nextBtn.hidden = single;
+    count.hidden = single;
+    overlay.setAttribute('aria-label', `${title} · ${pick(T.gallery)}`);
+    closeBtn.setAttribute('aria-label', pick(T.close));
+    prevBtn.setAttribute('aria-label', pick(T.prev));
+    nextBtn.setAttribute('aria-label', pick(T.next));
+    const idx = (((start || 0) % items.length) + items.length) % items.length;
+    const t = (token += 1);
+    navigating = false;
+    if (!overlay.hidden) {
+      // Zaten açık: animasyonsuz değiştir.
+      const size = await lbPreload(safeUrl(items[idx].src));
+      if (t !== token) return;
+      lbClear(frame);
+      swap(idx, size);
+      return;
+    }
+    state = 'opening';
+    revealed = false;
+    index = idx;
+    target = idx;
+    overlay.style.visibility = 'hidden';
+    overlay.hidden = false;
+    document.body.classList.add('cl-lb-open');
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', onResize);
+    const size = await lbPreload(safeUrl(items[idx].src));
+    if (t !== token || state !== 'opening') return;
+    swap(idx, size);
+    await settleImage();
+    if (t !== token || state !== 'opening') return;
+    fit();
+    const from0 = flipTransform(opener);
+    overlay.style.visibility = '';
+    revealed = true;
+    closeBtn.focus();
+    if (reducedMotion()) {
+      state = 'open';
+      return;
+    }
+    await Promise.all([
+      lbRun(overlay, [{ opacity: 0 }, { opacity: 1 }], LB_FADE),
+      lbRun(
+        frame,
+        from0
+          ? [{ transform: from0 }, { transform: 'none' }]
+          : [
+              { transform: 'scale(0.96)', opacity: 0 },
+              { transform: 'none', opacity: 1 },
+            ],
+        LB_OPEN,
+      ),
+    ]);
+    if (t !== token || state !== 'opening') return;
+    lbClear(overlay, frame);
+    state = 'open';
+  }
+
+  function finishClose() {
+    if (state === 'closed') return;
+    token += 1;
+    state = 'closed';
+    navigating = false;
+    revealed = false;
+    lbClear(overlay, frame);
+    overlay.hidden = true;
+    overlay.style.visibility = '';
+    document.body.classList.remove('cl-lb-open');
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', onResize);
+    img.removeAttribute('src');
+    frame.style.removeProperty('width');
+    items = [];
+    dims = { w: 0, h: 0 };
+    if (opener && opener.isConnected) opener.focus();
+    opener = null;
+  }
+
+  async function close() {
+    if (overlay.hidden || state === 'closed' || state === 'closing') return;
+    token += 1;
+    const t = token;
+    navigating = false;
+    lbClear(overlay, frame);
+    if (!revealed || reducedMotion()) {
+      finishClose();
+      return;
+    }
+    state = 'closing';
+    const to = flipTransform(opener);
+    await Promise.all([
+      lbRun(overlay, [{ opacity: 1 }, { opacity: 0 }], LB_CLOSE),
+      lbRun(
+        frame,
+        to
+          ? [{ transform: 'none' }, { transform: to }]
+          : [
+              { transform: 'none', opacity: 1 },
+              { transform: 'scale(0.96)', opacity: 0 },
+            ],
+        LB_CLOSE,
+      ),
+    ]);
+    if (t === token && state === 'closing') finishClose();
+  }
+
+  return { open, close };
+}
+
+// ---------- Küçük yardımcılar ----------
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).then(
+      () => true,
+      () => legacyCopy(text),
+    );
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+
+function legacyCopy(text) {
+  try {
+    const area = el('textarea', { readonly: true, 'aria-hidden': 'true', style: 'position:fixed;top:0;left:0;opacity:0' });
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function clampLevel(level) {
+  return Math.max(0, Math.min(5, Math.round(Number(level) || 0)));
+}
+
+function levelBar(level, row) {
+  const value = clampLevel(level);
+  return el(
+    'span',
+    { class: 'cl-lvl', role: 'img', 'aria-label': `${pick(T.level)} ${value}/5` },
+    [0, 1, 2, 3, 4].map((i) => el('span', { class: `cl-lvl-b${i < value ? ' is-on' : ''}`, style: `--i:${row * 2 + i}` })),
+  );
+}
+
+function legendItem(count, text) {
+  return el(
+    'span',
+    { class: 'cl-legend-item' },
+    el(
+      'span',
+      { class: 'cl-legend-blocks', 'aria-hidden': 'true' },
+      Array.from({ length: count }, (_, i) => el('span', { class: 'cl-lvl-b is-on', style: `--i:${count - 1 + i}` })),
+    ),
+    text,
+  );
+}
+
+function linkButtons(links, firstAccent) {
+  return (links || [])
+    .filter((link) => link && link.url)
+    .map((link, i) => el('li', null, extLink(link.url, pick(link.label), `cl-btn${firstAccent && i === 0 ? ' cl-btn--accent' : ''}`)));
+}
+
+// "Devamını göster": özet (3 satır kırpma) ve bulgular listesi kısa bir yükseklik + opaklık geçişiyle açılır/kapanır.
+// Sınıflar (is-clamped / is-collapsed) her zaman nihai durumu söyler; geçiş yalnızca üstüne binen bir WAAPI animasyonudur.
+// Kapanırken kırpma sınıfı geçiş BİTİNCE uygulanır (metin son ana kadar tam görünür); açılırken hemen kalkar.
+// Art arda tıklama: eski geçiş iptal edilir, yeni geçiş o anki ölçüden başlar. Süre + pay dolunca geçiş zorla bitirilir.
+function createExpander(ctx, summary, finds, more) {
+  let open = false;
+  let current = null; // { cancel, finish }
+
+  const setClasses = (isOpen) => {
+    summary.classList.toggle('is-clamped', !isOpen);
+    if (finds) finds.classList.toggle('is-collapsed', !isOpen);
+  };
+
+  const cancelMove = () => {
+    if (current) current.cancel();
+  };
+
+  function toggle() {
+    open = !open;
+    more.setAttribute('aria-expanded', String(open));
+    more.textContent = pick(open ? T.less : T.more);
+
+    const canAnimate = ctx.animate && !reducedMotion() && !document.hidden && typeof summary.animate === 'function';
+    if (!canAnimate) {
+      cancelMove();
+      setClasses(open);
+      return;
+    }
+
+    // 1) Başlangıç ölçüleri (süren bir geçiş varsa o anki değerler)
+    const gap = parseFloat(getComputedStyle(summary.parentElement).rowGap) || 0;
+    const fromS = summary.getBoundingClientRect().height;
+    let fromF = { h: 0, m: -gap, o: 0 };
+    if (finds && !finds.classList.contains('is-collapsed')) {
+      const style = getComputedStyle(finds);
+      fromF = { h: finds.getBoundingClientRect().height, m: parseFloat(style.marginTop) || 0, o: parseFloat(style.opacity) };
+      if (!Number.isFinite(fromF.o)) fromF.o = 1;
+    }
+
+    // 2) Eski geçişi bırak, hedef ölçüleri al
+    cancelMove();
+    setClasses(true);
+    let toS = summary.getBoundingClientRect().height;
+    let toF = finds ? finds.getBoundingClientRect().height : 0;
+    if (!open) {
+      summary.classList.add('is-clamped');
+      toS = summary.getBoundingClientRect().height;
+      summary.classList.remove('is-clamped');
+      toF = 0;
+    }
+    const goal = open;
+
+    // 3) Geçiş
+    let done = false;
+    let timer = 0;
+    let anims = [];
+    const stop = () => {
+      clearTimeout(timer);
+      ctx.moves.delete(end);
+      if (current && current.finish === end) current = null;
+      for (const anim of anims) anim.cancel();
+      summary.classList.remove('is-moving');
+      if (finds) finds.classList.remove('is-moving');
+    };
+    function end() {
+      if (done) return;
+      done = true;
+      setClasses(goal); // animasyon hâlâ tuttuğu için sıçrama olmaz; sonra iptal edilir
+      stop();
+    }
+    summary.classList.add('is-moving');
+    if (finds) finds.classList.add('is-moving');
+    const options = { duration: MORE_MS, easing: MORE_EASE, fill: 'forwards' };
+    try {
+      anims.push(summary.animate([{ height: `${fromS}px` }, { height: `${toS}px` }], options));
+      if (finds) {
+        anims.push(
+          finds.animate(
+            [
+              { height: `${fromF.h}px`, marginTop: `${fromF.m}px`, opacity: fromF.o },
+              { height: `${toF}px`, marginTop: goal ? '0px' : `${-gap}px`, opacity: goal ? 1 : 0 },
+            ],
+            options,
+          ),
+        );
+      }
+      anims[0].onfinish = end;
+    } catch {
+      end();
+      return;
+    }
+    timer = setTimeout(end, MORE_MS + MORE_SAFETY);
+    ctx.moves.add(end);
+    current = {
+      finish: end,
+      cancel: () => {
+        done = true;
+        stop();
+      },
+    };
+  }
+
+  return toggle;
+}
+
+// ---------- Sayfa ----------
+
+function build(ctx) {
+  const p = content.profile || {};
+  const c = content.contact || {};
+  const language = lang();
+
+  // Animasyon açıksa gizleme sınıfını JS ekler; kapalıysa içerik doğrudan görünür.
+  // Kademe gecikmesini (--cl-d) gözlemci verir: aynı anda görünen kardeşler sırayla açılır.
+  function rv(node) {
+    if (!node || !ctx.animate) return node;
+    node.classList.add('cl-reveal');
+    ctx.reveals.push(node);
+    return node;
+  }
+
+  // Kapsayıcının çocukları, kapsayıcı (ya da üstündeki .cl-reveal) görününce tek tek gelir.
+  // base: grubun başlangıç gecikmesi (ms). En çok SEQ_MAX + 1 kademe.
+  function seq(node, base = 60) {
+    if (!node || !ctx.animate) return node;
+    node.classList.add('cl-seq');
+    node.style.setProperty('--cl-seq-d', `${base}ms`);
+    Array.from(node.children).forEach((child, i) => child.style.setProperty('--cl-i', String(Math.min(i, SEQ_MAX))));
+    return node;
+  }
+
+  // extra: sayının, kartın kendi gecikmesine eklenen beklemesi (ms).
+  function counter(text, className, extra = 0) {
+    const value = String(pick(text));
+    const node = el('strong', { class: className, text: value });
+    if (ctx.animate) {
+      const parsed = parseCount(value);
+      // Küçük sayılar ("2", "1 dönem") saydırılmaz: ara değerleri anlamsız görünür.
+      if (parsed && parsed.target >= 10) ctx.counters.set(node, { ...parsed, extra });
+    }
+    return node;
+  }
+
+  function section(id, title, children, options = {}) {
+    const headingId = `cl-${id}-h`;
+    return el(
+      'section',
+      { id: `cl-${id}`, class: `cl-section cl-section--${id}`, 'aria-labelledby': headingId, tabindex: '-1' },
+      options.srOnly ? el('h2', { id: headingId, class: 'sr-only', text: title }) : rv(el('h2', { id: headingId, class: 'cl-h2', text: title })),
+      children,
+    );
+  }
+
+  // Kulüp / takım / gönüllülük kayıtları; dizi yoksa ya da boşsa bölüm ve bağlantısı çizilmez.
+  const activities = Array.isArray(content.activities) ? content.activities.filter(Boolean) : [];
+
+  // --- Gezinme ---
+  const navLinks = new Map();
+  const navList = el(
+    'ul',
+    { class: 'cl-nav' },
+    NAV.filter((id) => id !== 'activities' || activities.length > 0).map((id) => {
+      const link = el('a', { href: `#cl-${id}`, text: pick(T[id]), onclick: (event) => ctx.goTo(event, id) });
+      navLinks.set(id, link);
+      return el('li', null, link);
+    }),
+  );
+  ctx.navLinks = navLinks;
+  ctx.navList = navList;
+  const bar = el('nav', { class: 'cl-bar', 'aria-label': pick(T.nav) }, el('div', { class: 'cl-bar-in' }, navList));
+
+  // --- Kahraman ---
+  const contactLinks = c.links || [];
+  let photo = null;
+  if (p.photo) {
+    const img = el('img', {
+      src: safeUrl(p.photo),
+      alt: `${p.name || ''} ${pick(T.photoAlt)}`.trim(),
+      width: 240,
+      height: 240,
+      loading: 'lazy',
+      decoding: 'async',
+    });
+    photo = el('figure', { class: 'cl-photo' }, img);
+    // Fotoğraf yüklenemezse çerçeve de gizlenir.
+    img.addEventListener('error', () => photo.remove(), { once: true });
+  }
+  const hero = el(
+    'header',
+    { class: 'cl-hero' },
+    el('div', { class: 'cl-hero-bg', 'aria-hidden': 'true', style: `background-image:url('${ROOM_IMAGE}')` }),
+    el(
+      'div',
+      { class: 'cl-wrap cl-hero-in' },
+      photo,
+      el(
+        'div',
+        { class: 'cl-hero-text' },
+        el('h1', { class: 'cl-name', text: p.name }),
+        el('p', { class: 'cl-title', text: pick(p.title) }),
+        el('p', { class: 'cl-tagline', text: pick(p.tagline) }),
+        p.location && el('p', { class: 'cl-loc' }, el('span', { class: 'cl-pin', 'aria-hidden': 'true' }), pick(p.location)),
+        el(
+          'ul',
+          { class: 'cl-actions' },
+          c.email && el('li', null, el('a', { class: 'cl-btn cl-btn--accent', href: safeUrl(`mailto:${c.email}`), text: c.email })),
+          linkButtons(contactLinks, false),
+        ),
+      ),
+    ),
+  );
+
+  // --- Sayılarla ---
+  const stats = p.stats || [];
+  const statsSection =
+    stats.length > 0 &&
+    section(
+      'numbers',
+      pick(T.numbers),
+      el(
+        'ul',
+        { class: 'cl-wrap cl-stats' },
+        stats.map((stat) =>
+          rv(el('li', { class: 'cl-stat' }, counter(stat.value, 'cl-stat-v'), el('span', { class: 'cl-stat-l', text: pick(stat.label) }))),
+        ),
+      ),
+      { srOnly: true },
+    );
+
+  // --- Hakkımda ---
+  const highlights = p.highlights || [];
+  const aboutSection = section(
+    'about',
+    pick(T.about),
+    el(
+      'div',
+      { class: 'cl-about' },
+      rv(el('div', { class: 'cl-prose' }, toParagraphs(p.bio, pick).map((text) => el('p', { text })))),
+      highlights.length > 0 &&
+        rv(
+          el(
+            'div',
+            { class: 'cl-high' },
+            el('h3', { class: 'cl-h3', text: pick(T.highlights) }),
+            seq(el('ul', { class: 'cl-badges' }, highlights.map((item) => el('li', { text: pick(item) })))),
+          ),
+        ),
+    ),
+  );
+
+  // --- Projeler ---
+  // Küçük resim: tembel yükleme yatay şeritte boş kutu bırakıyordu; kaynak, görünüm açılınca atanır.
+  function thumbImage(src) {
+    // decoding: sync -> yüklenir yüklenmez boyanır (async'te kutu boş kalabiliyordu).
+    const img = el('img', { alt: '', width: 120, height: 90, decoding: 'sync' });
+    // Yüklenemeyen küçük resim kırık simge yerine boş kutu olarak kalır (CSS: img:not([src])).
+    img.addEventListener('error', () => img.removeAttribute('src'), { once: true });
+    ctx.thumbs.push({ img, src: safeUrl(src) });
+    return img;
+  }
+
+  function projectCard(project, i) {
+    const title = pick(project.title);
+    const gallery = (project.gallery || []).filter((item) => item && item.src);
+    const openAt = (start, from) => ctx.lightbox.open(gallery, start, title, from);
+
+    let media = placeholder(project);
+    if (project.cover) {
+      // coverCenter: logo kapakları üstten değil ortadan kırpılır
+      const img = el('img', {
+        src: safeUrl(project.cover),
+        alt: title,
+        class: project.coverCenter ? 'is-centered' : null,
+        loading: 'lazy',
+        decoding: 'async',
+      });
+      media = img;
+      // Kapak yüklenemezse yer tutucuya düş.
+      img.addEventListener('error', () => img.replaceWith(placeholder(project)), { once: true });
+    }
+    if (gallery.length > 0) {
+      const start = Math.max(0, gallery.findIndex((item) => item.src === project.cover));
+      media = el(
+        'button',
+        {
+          type: 'button',
+          class: 'cl-cover-btn',
+          'aria-label': `${title}: ${pick(T.gallery)} (${pick(T.enlarge)})`,
+          onclick: (event) => openAt(start, event.currentTarget),
+        },
+        media,
+      );
+    }
+
+    const links = project.links || {};
+    const linkItems = [];
+    if (links.demo) linkItems.push({ label: pick(T.demo), url: pick(links.demo) });
+    if (links.source) linkItems.push({ label: pick(T.source), url: pick(links.source) });
+    for (const extra of links.extra || []) {
+      if (extra && extra.url) linkItems.push({ label: pick(extra.label), url: pick(extra.url), note: extra.note && pick(extra.note), extra: true });
+    }
+    // Vurgulu düğme: demo varsa o, yoksa ilk ek bağlantı.
+    const accent = linkItems.find((item) => item.label === pick(T.demo) && !item.extra) || linkItems.find((item) => item.extra);
+    const tags = project.tags || [];
+    const projectStats = project.stats || [];
+
+    // Öne çıkan kart dışındakilerde özet 3 satırda kesilir, bulgular listesi (varsa) kapalı gelir; düğme ikisini de açar.
+    // Açılacak bir şey yoksa (özet kırpılmamış, bulgu yok) düğme fitClamps'te gizlenir.
+    const sumId = `cl-sum-${project.id}`;
+    const findId = `cl-find-${project.id}`;
+    const summary = el('p', { id: sumId, class: 'cl-card-sum', text: pick(project.summary) });
+    const findingList = Array.isArray(project.findings) ? project.findings : [];
+    const finds =
+      findingList.length > 0 &&
+      el(
+        'div',
+        { id: findId, class: 'cl-find' },
+        el('h4', { class: 'cl-find-h', text: pick(T.findings) }),
+        seq(el('ul', null, findingList.map((item) => el('li', { text: pick(item) })))),
+      );
+    let more = null;
+    if (i > 0) {
+      summary.classList.add('is-clamped');
+      if (finds) finds.classList.add('is-collapsed');
+      more = el('button', {
+        type: 'button',
+        class: 'cl-more',
+        'aria-expanded': 'false',
+        'aria-controls': finds ? `${sumId} ${findId}` : sumId,
+        text: pick(T.more),
+      });
+      more.addEventListener('click', createExpander(ctx, summary, finds || null, more));
+      ctx.clamps.push({ summary, more, hasFinds: Boolean(finds) });
+    }
+    const noteId = (at) => `cl-note-${project.id}-${at}`;
+
+    return rv(
+      el(
+        'article',
+        { class: `cl-card${i === 0 ? ' cl-card--feat' : ''}` },
+        el(
+          'figure',
+          { class: 'cl-cover' },
+          media,
+          // Galeri varsa kapağın tıklanabildiğini gösteren küçük "büyüt" rozeti (tıklamayı düğmeye bırakır)
+          gallery.length > 0 && el('span', { class: 'cl-zoom', 'aria-hidden': 'true' }, pixelIcon('zoom', 'cl-zoom-ico')),
+          el(
+            'p',
+            { class: 'cl-date' },
+            i === 0 && el('span', { class: 'cl-date-new', text: pick(T.latest) }),
+            el('time', { datetime: String(project.date || ''), text: projectDate(project.date, language) }),
+          ),
+        ),
+        el(
+          'div',
+          { class: 'cl-card-body' },
+          el('h3', { class: 'cl-card-title', text: title }),
+          summary,
+          more,
+          finds,
+          projectStats.length > 0 &&
+            seq(
+              el(
+                'ul',
+                { class: 'cl-mini' },
+                projectStats.map((stat, at) =>
+                  el('li', null, counter(stat.value, 'cl-mini-v', SEQ_MINI + Math.min(at, SEQ_MAX) * SEQ_STEP), el('span', { class: 'cl-mini-l', text: pick(stat.label) })),
+                ),
+              ),
+              SEQ_MINI,
+            ),
+          gallery.length > 0 &&
+            el(
+              'ul',
+              // Tümü dikey telefon ekranıysa: yan yana dikey kutular (sütun sayısı --cl-n).
+              gallery.every((item) => item.portrait)
+                ? { class: 'cl-gallery cl-gallery--portrait', style: `--cl-n:${gallery.length}`, 'aria-label': pick(T.gallery) }
+                : { class: 'cl-gallery', 'aria-label': pick(T.gallery) },
+              gallery.map((item, at) => {
+                const text = pick(item.caption) || title;
+                return el(
+                  'li',
+                  null,
+                  el(
+                    'button',
+                    {
+                      type: 'button',
+                      class: 'cl-thumb',
+                      'aria-label': `${text} (${pick(T.enlarge)})`,
+                      onclick: (event) => openAt(at, event.currentTarget),
+                    },
+                    thumbImage(item.src),
+                  ),
+                );
+              }),
+            ),
+          tags.length > 0 && seq(el('ul', { class: 'cl-tags' }, tags.map((tag) => el('li', { text: pick(tag) }))), 120),
+          linkItems.length > 0 &&
+            el(
+              'div',
+              { class: 'cl-linkbox' },
+              seq(
+                el(
+                  'ul',
+                  { class: 'cl-links' },
+                  linkItems.map((item, at) => {
+                    const link = extLink(item.url, item.label, `cl-btn${item === accent ? ' cl-btn--accent' : ''}`);
+                    if (item.note) link.setAttribute('aria-describedby', noteId(at));
+                    return el('li', null, link);
+                  }),
+                ),
+                180,
+              ),
+              // Notlar düğme satırının altında, tam genişlikte.
+              linkItems.map((item, at) => item.note && el('p', { id: noteId(at), class: 'cl-link-note', text: item.note })),
+            ),
+        ),
+      ),
+    );
+  }
+
+  const projects = sortedProjects();
+  const projectsSection = projects.length > 0 && section('projects', pick(T.projects), el('div', { class: 'cl-projects' }, projects.map(projectCard)));
+
+  // --- Deneyim / Eğitim ---
+  // Pixel logo; yoksa ya da yüklenemezse kutu hiç yer kaplamaz.
+  function schoolLogo(item) {
+    if (!item.logo || typeof item.logo !== 'string') return null;
+    const img = el('img', {
+      src: safeUrl(item.logo),
+      alt: String(pick(item.org) || pick(item.title) || ''),
+      width: 64,
+      height: 64,
+      decoding: 'async',
+    });
+    const box = el('span', { class: 'cl-logo' }, img);
+    img.addEventListener('error', () => box.remove(), { once: true });
+    return box;
+  }
+
+  // Aynı kurumdaki görevler (yeniden eskiye): kurum kaydının altında iç içe liste.
+  // roles yoksa null döner; el() null çocuğu atladığı için kayıt eskisi gibi çizilir.
+  function roleList(roles) {
+    if (!Array.isArray(roles) || roles.length === 0) return null;
+    return el(
+      'ol',
+      { class: 'cl-roles' },
+      roles.map((role, at) => {
+        const period = pick(role.period);
+        const isCurrent = /devam|present/i.test(period || '');
+        return el(
+          'li',
+          { class: isCurrent ? 'cl-roles-item is-current' : 'cl-roles-item', style: `--cl-i:${Math.min(at, SEQ_MAX)}` },
+          el(
+            'div',
+            { class: 'cl-roles-head' },
+            el('h4', { class: 'cl-roles-title', text: pick(role.title) }),
+            isCurrent && el('span', { class: 'cl-roles-now', text: pick(T.now) }),
+            period && el('p', { class: 'cl-roles-period', text: period }),
+          ),
+          role.note && el('p', { class: 'cl-roles-note', text: pick(role.note) }),
+        );
+      }),
+    );
+  }
+
+  function timeline(items) {
+    return el(
+      'ol',
+      { class: 'cl-tl' },
+      items.map((item) =>
+        rv(
+          el(
+            'li',
+            { class: /devam|present/i.test(pick(item.period)) ? 'cl-tl-item is-current' : 'cl-tl-item' },
+            schoolLogo(item),
+            el(
+              'div',
+              { class: 'cl-tl-text' },
+              el('p', { class: 'cl-tl-period', text: pick(item.period) }),
+              el('h3', { class: 'cl-tl-title', text: pick(item.title) }),
+              item.org && el('p', { class: 'cl-tl-org', text: pick(item.org) }),
+              item.note && el('p', { class: 'cl-tl-note', text: pick(item.note) }),
+              roleList(item.roles),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  function skillCard(group, className, fallbackTitle) {
+    return el(
+      'div',
+      { class: className },
+      el('h3', { class: 'cl-h3', text: pick(group.group) || fallbackTitle || '' }),
+      seq(
+        el(
+          'ul',
+          { class: 'cl-skill-list' },
+          (group.items || []).map((item, row) =>
+            el('li', { class: 'cl-skill' }, el('span', { class: 'cl-skill-name', text: pick(item.name) }), levelBar(item.level, row)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Diller grubu (kind: 'languages') sağ sütunda kart olur; kalanlar Yetenekler'de.
+  const allSkills = (content.skills || []).filter(Boolean);
+  const languageGroups = allSkills.filter((group) => group.kind === 'languages');
+  const skills = allSkills.filter((group) => group.kind !== 'languages');
+
+  const experience = content.experience || [];
+  const education = content.education || [];
+  const certificates = content.certificates || [];
+  const hasEducation = education.length > 0 || certificates.length > 0 || languageGroups.length > 0;
+  // Sol sütun: Deneyim. Sağ sütun: Eğitim + Sertifikalar + Diller.
+  const pathBlock =
+    (experience.length > 0 || hasEducation) &&
+    el(
+      'div',
+      { class: 'cl-wrap cl-two' },
+      experience.length > 0 && section('experience', pick(T.experience), timeline(experience)),
+      hasEducation &&
+        section('education', pick(T.education), [
+          education.length > 0 && timeline(education),
+          certificates.length > 0 &&
+            rv(
+              el(
+                'div',
+                { class: 'cl-certs' },
+                el('h3', { class: 'cl-h3', text: pick(T.certificates) }),
+                seq(el('ul', { class: 'cl-cert-list' }, certificates.map((item) => el('li', { text: pick(item) })))),
+              ),
+            ),
+          languageGroups.map((group) => rv(skillCard(group, 'cl-langs', pick(T.languages)))),
+        ]),
+    );
+
+  // --- Aktiviteler ve Projeler: iki sütunun altında, tam genişlikte ---
+  // Kayıtlar sırası bozulmadan iki zaman çizgisine bölünür. Kayıt ağırlığı 1 + görev sayısıdır;
+  // iki yanın ağırlığını en çok dengeleyen ilk kesim seçilir. Tek kayıt tek sütun olarak kalır.
+  function splitActivities(items) {
+    if (items.length < 2) return [items];
+    const weights = items.map((item) => 1 + (Array.isArray(item.roles) ? item.roles.length : 0));
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let cut = 1;
+    let best = Infinity;
+    let left = 0;
+    for (let i = 1; i < items.length; i += 1) {
+      left += weights[i - 1];
+      const diff = Math.abs(total - 2 * left);
+      if (diff < best) {
+        best = diff;
+        cut = i;
+      }
+    }
+    return [items.slice(0, cut), items.slice(cut)];
+  }
+
+  const activityColumns = splitActivities(activities);
+  const activitiesSection =
+    activities.length > 0 &&
+    section(
+      'activities',
+      pick(T.activitiesTitle),
+      activityColumns.length > 1 ? el('div', { class: 'cl-act' }, activityColumns.map(timeline)) : timeline(activities),
+    );
+
+  // --- Yetenekler ---
+  const skillsSection =
+    skills.length > 0 &&
+    section('skills', pick(T.skills), [
+      el(
+        'div',
+        { class: 'cl-skills' },
+        skills.map((group) => rv(skillCard(group, 'cl-skillcard'))),
+      ),
+      rv(
+        seq(
+          el(
+            'p',
+            { class: 'cl-legend' },
+            T.legend.map((text, i) => legendItem(i + 1, pick(text))),
+          ),
+          0,
+        ),
+      ),
+    ]);
+
+  // --- İletişim ---
+  const copyStatus = el('span', { class: 'cl-copy-status', role: 'status', 'aria-live': 'polite' });
+  const copyBtn = el('button', {
+    type: 'button',
+    class: 'cl-btn cl-copy',
+    text: pick(T.copy),
+    onclick: () => {
+      copyText(c.email).then((ok) => {
+        copyStatus.textContent = pick(ok ? T.copied : T.copyFailed);
+        // Kısa "pat": sınıf yeniden eklenerek animasyon her tıklamada baştan oynar (CSS hareket azaltmada uygulamaz)
+        if (!reducedMotion()) {
+          copyBtn.classList.remove('is-pop');
+          copyStatus.classList.remove('is-pop');
+          void copyBtn.offsetWidth;
+          copyBtn.classList.add('is-pop');
+          copyStatus.classList.add('is-pop');
+        }
+        clearTimeout(ctx.copyTimer);
+        ctx.copyTimer = setTimeout(() => {
+          copyStatus.textContent = '';
+        }, 2200);
+      });
+    },
+  });
+  const guestbookBody = el('div', { class: 'cl-gb' });
+  // Defter bölümü (ve veri isteği) klasik görünüm ilk açıldığında ayrı parçadan yüklenir.
+  ctx.mountGuestbook = () => {
+    ctx.mountGuestbook = null;
+    import('./guestbook.js')
+      .then((m) => {
+        if (ctx.alive) ctx.disposeGuestbook = m.mountGuestbookSection(guestbookBody);
+      })
+      .catch(() => {});
+  };
+  const guestbookSection = section('guestbook', pick(T.guestbookTitle), rv(guestbookBody));
+
+  const contactSection = el(
+    'section',
+    { id: 'cl-contact', class: 'cl-section cl-section--contact', 'aria-labelledby': 'cl-contact-h', tabindex: '-1' },
+    rv(
+      el(
+        'div',
+        { class: 'cl-wrap cl-contact' },
+        el('p', { class: 'cl-contact-kicker', text: pick(T.contact) }),
+        el('h2', { id: 'cl-contact-h', class: 'cl-cta', text: pick(T.cta) }),
+        c.note && el('p', { class: 'cl-contact-note', text: pick(c.note) }),
+        c.email &&
+          el('p', { class: 'cl-mail-row' }, el('a', { class: 'cl-mail', href: safeUrl(`mailto:${c.email}`), text: c.email }), copyBtn, copyStatus),
+        contactLinks.length > 0 && seq(el('ul', { class: 'cl-actions' }, linkButtons(contactLinks, true)), 120),
+      ),
+    ),
+  );
+
+  ctx.fitClamps = () => {
+    for (const { summary, more, hasFinds } of ctx.clamps) {
+      // Bulgular listesi varsa düğme hep gerekli.
+      if (hasFinds || !summary.classList.contains('is-clamped') || summary.clientHeight === 0) continue;
+      more.hidden = summary.scrollHeight <= summary.clientHeight + 1;
+    }
+  };
+
+  // Logo atıfı yalnızca logo kullanılıyorsa gösterilir.
+  const hasLogos = [...education, ...activities].some((item) => item && item.logo);
+  const footer = el(
+    'footer',
+    { class: 'cl-foot' },
+    el('p', { class: 'cl-wrap', text: pick(T.foot) }),
+    el('p', { class: 'cl-wrap cl-foot-note', text: pick(T.privacy) }),
+    hasLogos && el('p', { class: 'cl-wrap cl-foot-note', text: pick(T.logoCredit) }),
+  );
+
+  return el('div', { class: 'cl' }, bar, hero, statsSection, aboutSection, skillsSection, projectsSection, pathBlock, activitiesSection, guestbookSection, contactSection, footer);
+}
+
+export function createClassic(root) {
+  root.classList.add('cl-root');
+
+  const lightbox = createLightbox();
+  let ctx = null;
+  let active = false;
+  let currentNav = null;
+  let preferredNav = null; // son tıklanan bağlantı: aynı hizadaki bölümlerde o vurgulanır
+  let sizeObserver = null;
+  let watchedHud = null;
+
+  // HUD (sağ üstte sabit) ve yapışkan çubuğun ölçüleri CSS değişkenlerine yazılır.
+  function measure() {
+    const hud = document.querySelector('#ui .hud-actions');
+    if (hud) {
+      const rect = hud.getBoundingClientRect();
+      if (rect.width > 0) {
+        root.style.setProperty('--hud-w', `${Math.ceil(rect.width)}px`);
+        root.style.setProperty('--hud-bottom', `${Math.ceil(rect.bottom)}px`);
+      }
+    }
+    const bar = root.querySelector('.cl-bar');
+    if (bar && bar.offsetHeight > 0) root.style.setProperty('--bar-h', `${bar.offsetHeight}px`);
+    if (ctx && ctx.fitClamps) ctx.fitClamps();
+  }
+
+  function watchSizes() {
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    if (!sizeObserver) sizeObserver = new ResizeObserver(measure);
+    const hud = document.querySelector('#ui .hud-actions');
+    if (hud && hud !== watchedHud) {
+      sizeObserver.observe(hud);
+      watchedHud = hud;
+    }
+    const bar = root.querySelector('.cl-bar');
+    if (bar) sizeObserver.observe(bar);
+  }
+
+  function barHeight() {
+    const bar = root.querySelector('.cl-bar');
+    return bar ? bar.offsetHeight : 0;
+  }
+
+  // Kaydırma konumuna göre gezinmede etkin bölümü vurgula.
+  function updateNav() {
+    if (!active || !ctx) return;
+    const line = barHeight() + 90;
+    let current = null;
+    let currentTop = -Infinity;
+    for (const id of NAV) {
+      const node = document.getElementById(`cl-${id}`);
+      if (!node) continue;
+      const top = node.getBoundingClientRect().top;
+      // Yan yana duran bölümlerde (aynı hizada) ilki, tıklanmışsa tıklanan seçilir.
+      if (top <= line && (top > currentTop + 4 || (id === preferredNav && Math.abs(top - currentTop) <= 4))) {
+        current = id;
+        currentTop = top;
+      }
+    }
+    const doc = document.documentElement;
+    if (window.innerHeight + window.scrollY >= doc.scrollHeight - 4 && window.scrollY > 0) current = NAV[NAV.length - 1];
+    if (current === currentNav) return;
+    currentNav = current;
+    for (const [id, link] of ctx.navLinks) {
+      const isCurrent = id === current;
+      link.classList.toggle('is-active', isCurrent);
+      if (isCurrent) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+      // Dar ekranda etkin bağlantı şeridin içinde görünür kalsın.
+      if (isCurrent) ctx.navList.scrollLeft = link.offsetLeft - (ctx.navList.clientWidth - link.offsetWidth) / 2;
+    }
+  }
+
+  let scrollQueued = false;
+  function onScroll() {
+    if (!active || scrollQueued) return;
+    scrollQueued = true;
+    requestAnimationFrame(() => {
+      scrollQueued = false;
+      updateNav();
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+
+  function goTo(event, id) {
+    const target = document.getElementById(`cl-${id}`);
+    if (!target) return;
+    event.preventDefault();
+    preferredNav = id;
+    // Gidilen bölüm beklemeden açılır (odak görünmeyen içerikte kalmasın).
+    if (ctx && ctx.revealIn) ctx.revealIn(target);
+    target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    target.focus({ preventScroll: true });
+    onScroll();
+  }
+
+  // Galeri küçük resimleri oyun modunda indirilmez; klasik görünüm açılınca hepsi yüklenir.
+  function loadThumbs() {
+    if (!ctx) return;
+    for (const { img, src } of ctx.thumbs.splice(0)) img.src = src;
+  }
+
+  // ---------- Açılış animasyonu (hero) ----------
+  // Yalnızca sayfa yüklemesinden sonra görünüm İLK kez açıldığında oynar. Tüm zamanlama CSS gecikmeleridir
+  // (.cl-hero.is-intro); JS yalnızca unvanı harflere böler ve güvenlik zamanlayıcısını kurar.
+  // Bitince (ya da gizlenince, yeniden çizilince, en geç INTRO_SAFETY ms sonra) sınıf kalkar, unvan düz metne döner.
+  let intro = null;
+
+  function finishIntro() {
+    if (!intro) return;
+    const { hero, title, text, timer } = intro;
+    intro = null;
+    clearTimeout(timer);
+    hero.classList.remove('is-intro');
+    if (title.isConnected) {
+      title.textContent = text;
+      title.style.removeProperty('--ty-step');
+    }
+  }
+
+  function startIntro() {
+    if (introPlayed) return;
+    introPlayed = true;
+    // Animasyon kapalıysa (hareket azaltma, dil değişimi) ya da sekme gizliyse hiçbir şey gizlenmez.
+    if (!ctx || !ctx.animate || reducedMotion() || document.hidden) return;
+    const hero = root.querySelector('.cl-hero');
+    const title = hero && hero.querySelector('.cl-title');
+    if (!hero || !title) return;
+    const text = title.textContent || '';
+    const chars = graphemes(text);
+    if (chars.length) {
+      // Tam metin tek parça kalır: sarmalayıcı bir "img" gibi okunur, harfler ona dahildir.
+      const step = Math.max(12, Math.min(70, INTRO_TYPE / chars.length));
+      const wrap = el('span', { class: 'cl-ty', role: 'img', 'aria-label': text });
+      chars.forEach((ch, i) => {
+        wrap.append(el('span', { class: i === chars.length - 1 ? 'cl-ch is-last' : 'cl-ch', 'aria-hidden': 'true', style: `--ty-i:${i}` }, ch));
+      });
+      title.replaceChildren(wrap);
+      title.style.setProperty('--ty-step', `${step.toFixed(2)}ms`);
+    }
+    hero.classList.add('is-intro');
+    intro = { hero, title, text, timer: setTimeout(finishIntro, INTRO_SAFETY) };
+  }
+
+  // Güvenlik ağı zamanlayıcısı: yalnızca görünüm açık, belge görünür ve açılmamış öğe varken çalışır.
+  let sweepTimer = 0;
+  function stopSweep() {
+    clearInterval(sweepTimer);
+    sweepTimer = 0;
+    if (ctx) ctx.seen.clear();
+  }
+  function startSweep() {
+    stopSweep();
+    if (!ctx || !ctx.sweep || !active || document.hidden || ctx.pending.size === 0) return;
+    const context = ctx;
+    sweepTimer = setInterval(() => {
+      if (context !== ctx || !active || document.hidden) {
+        stopSweep();
+        return;
+      }
+      context.sweep();
+      if (context.pending.size === 0) stopSweep();
+    }, RV_SWEEP);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) {
+      // rAF duracak: sayan sayaçlar son değerine yazılır.
+      for (const finish of [...ctx.running.values()]) finish();
+      // Animasyonlar ilerlemeyebilir: açılış ve açılıp kapanan bölümler tamamlanmış duruma geçer.
+      finishIntro();
+      for (const finish of [...ctx.moves]) finish();
+      stopSweep();
+    } else {
+      startSweep();
+    }
+  });
+  // Klavye odağı görünmeyen öğede kalmasın: odaklanan öğenin kapsayıcısı hemen açılır.
+  root.addEventListener('focusin', (event) => {
+    if (!ctx || !ctx.revealIn || !(event.target instanceof Element)) return;
+    const holder = event.target.closest('.cl-reveal');
+    if (holder) ctx.revealIn(holder);
+  });
+
+  function teardown() {
+    if (!ctx) return;
+    ctx.alive = false;
+    stopSweep();
+    finishIntro();
+    for (const finish of [...ctx.moves]) finish();
+    for (const finish of [...ctx.running.values()]) finish();
+    clearTimeout(ctx.copyTimer);
+    if (ctx.disposeGuestbook) ctx.disposeGuestbook();
+    if (ctx.io) ctx.io.disconnect();
+    const bar = root.querySelector('.cl-bar');
+    if (bar && sizeObserver) sizeObserver.unobserve(bar);
+  }
+
+  function render(animate) {
+    teardown();
+    lightbox.close();
+    ctx = {
+      alive: true,
+      animate: Boolean(animate) && !reducedMotion() && 'IntersectionObserver' in window,
+      reveals: [],
+      pending: new Set(), // henüz açılmamış .cl-reveal düğümleri
+      seen: new Set(), // güvenlik ağı: önceki turda ekranda görülenler
+      counters: new Map(),
+      running: new Map(), // sayan sayaçlar: düğüm -> bitirici
+      moves: new Set(), // süren "Devamını göster" geçişleri: bitirici işlevler
+      revealIn: null,
+      sweep: null,
+      clamps: [],
+      thumbs: [],
+      navLinks: new Map(),
+      navList: null,
+      copyTimer: null,
+      io: null,
+      lightbox,
+      goTo,
+    };
+    const context = ctx;
+    root.replaceChildren(build(context));
+    currentNav = null;
+
+    if (context.animate) {
+      // Animasyon kurallarını kaldırır (is-done): öğe son hâlinde kalır, yarım sayaç tamamlanır.
+      const settle = (node) => {
+        node.classList.add('is-done');
+        for (const [counterNode, finish] of [...context.running]) {
+          if (node.contains(counterNode)) finish();
+        }
+      };
+      // delay: kademe gecikmesi (ms). instant: animasyonsuz, doğrudan son hâl (güvenlik ağı, gezinme, odak).
+      const reveal = (node, delay, instant) => {
+        if (!context.pending.delete(node)) return;
+        context.seen.delete(node);
+        context.io.unobserve(node);
+        if (delay) node.style.setProperty('--cl-d', `${delay}ms`);
+        node.classList.add('is-in');
+        for (const [counterNode, parsed] of [...context.counters]) {
+          if (!node.contains(counterNode)) continue;
+          context.counters.delete(counterNode);
+          if (!instant) runCounter(counterNode, parsed, context, delay + parsed.extra);
+        }
+        if (instant) settle(node);
+        else setTimeout(settle, RV_SETTLE + delay, node);
+      };
+      context.revealIn = (scope) => {
+        for (const node of [...context.pending]) {
+          if (scope.contains(node)) reveal(node, 0, true);
+        }
+      };
+      // Güvenlik ağı: gözlemci tetiklenmediyse ekrandaki öğeler doğrudan gösterilir (ölçüt gözlemciyle aynı).
+      context.sweep = () => {
+        const limit = window.innerHeight * (1 - RV_BOTTOM);
+        for (const node of [...context.pending]) {
+          const rect = node.getBoundingClientRect();
+          const shown = Math.min(rect.bottom, limit) - Math.max(rect.top, 0);
+          const visible = (rect.width > 0 || rect.height > 0) && shown >= rect.height * RV_RATIO && (shown > 0 || rect.height === 0);
+          if (!visible) context.seen.delete(node);
+          else if (context.seen.has(node)) reveal(node, 0, true);
+          else context.seen.add(node);
+        }
+      };
+      // Sayfa gizliyken (hidden) tetiklenmez; görünüm açılınca ekrandaki parçalar belirir.
+      // Aynı anda görünen kardeşler (aynı üst öğe) sırayla açılır.
+      context.io = new IntersectionObserver(
+        (entries) => {
+          const groups = new Map();
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const node = entry.target;
+            const at = groups.get(node.parentElement) || 0;
+            groups.set(node.parentElement, at + 1);
+            const inTimeline = node.classList.contains('cl-tl-item');
+            reveal(node, Math.min(at, inTimeline ? TL_MAX : RV_MAX) * (inTimeline ? TL_STEP : RV_STEP), false);
+          }
+        },
+        { threshold: RV_RATIO, rootMargin: `0px 0px -${RV_BOTTOM * 100}% 0px` },
+      );
+      for (const node of context.reveals) {
+        context.pending.add(node);
+        context.io.observe(node);
+      }
+    }
+
+    if (active) {
+      loadThumbs();
+      if (context.mountGuestbook) context.mountGuestbook();
+      watchSizes();
+      updateNav();
+      startSweep();
+    }
+  }
+
+  // Gizliyken de içerik DOM'da dursun (arama motorları için).
+  render(true);
+  // Yazı tipi gelince satır sayıları değişir; ölçümler yenilenir.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      if (active) measure();
+    });
+  }
+  // Dil değişince görünüm açıksa animasyonsuz yeniden çiz (içerik bir an bile kaybolmasın).
+  on('lang:changed', () => render(!active));
+
+  return {
+    setActive(next) {
+      active = Boolean(next);
+      root.hidden = !active;
+      document.body.classList.toggle('is-classic', active);
+      if (active) {
+        startIntro();
+        loadThumbs();
+        if (ctx && ctx.mountGuestbook) ctx.mountGuestbook();
+        window.scrollTo(0, 0);
+        // HUD kendi düğmelerini bu çağrıdan sonra günceller; ölçüm bir kare sonra.
+        requestAnimationFrame(() => {
+          watchSizes();
+          updateNav();
+        });
+        startSweep();
+      } else {
+        lightbox.close();
+        finishIntro();
+        stopSweep();
+      }
+    },
+  };
+}

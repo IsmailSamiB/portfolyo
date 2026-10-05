@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>İsmail Sami Başaraner · Portfolyo</title>
+    <meta name="description" content="Oyunlaştırılmış pixel art portfolyo: odamı gez, projelerimi keşfet." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="İsmail Sami Başaraner · Portfolyo" />
+    <meta property="og:description" content="Odamı gez, projelerimi keşfet." />
+    <meta property="og:url" content="https://ismailsamib.github.io/portfolyo/" />
+    <meta property="og:image" content="https://ismailsamib.github.io/portfolyo/og-cover.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://ismailsamib.github.io/portfolyo/" />
+    <!-- Tek pixel aile: Jersey 15 (başlık + veri) ve Jersey 10 (gövde). Dosyalar siteden yüklenir
+         (@font-face: src/style.css); Türkçe harfler latin-ext alt kümesinde olduğu için dördü de önden istenir. -->
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/jersey10-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/jersey10-latin-ext.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/jersey15-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/jersey15-latin-ext.woff2" crossorigin />
+    <!-- Oda görseli: açılış ekranının arka planı, klasik görünümün kahramanı ve oyunun zemini -->
+    <link rel="preload" as="image" href="/assets/room/room.webp" type="image/webp" fetchpriority="high" />
+  </head>
+  <body>
+    <!-- Phaser tuvali -->
+    <div id="game"></div>
+    <!-- HUD, paneller, diyalog kutusu (src/ui) -->
+    <div id="ui"></div>
+    <!-- Klasik görünüm: aynı içeriğin düz sayfa hali (src/ui/classic.js) -->
+    <main id="classic" hidden></main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,109 @@
+rules_version = '2';
+
+// Kişisel site: anonim kullanım olayları + ziyaretçi defteri + mini oyun skor tablosu.
+// Bu dosyanın tamamı Firebase konsolu > Firestore Database > Kurallar (Rules) sekmesine yapıştırılır.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Tek yönetici. Adres src/data/config.js içindeki ADMIN_EMAIL ile aynı olmalı.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'basaraner1629@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // events.data içinde istemcinin gerçekten gönderdiği anahtarlar (src/data/metrics.js):
+    // id, tour, active, lang, mode, host, path (dizgi/bool) ile score, seconds (tamsayı).
+    // Dizgiler istemcide 80 karaktere kırpılır.
+    function validData(m) {
+      return m.size() <= 8
+        && m.keys().hasOnly(['id', 'tour', 'active', 'lang', 'mode', 'host', 'path', 'score', 'seconds'])
+        && (!('id' in m) || (m.id is string && m.id.size() <= 80))
+        && (!('tour' in m) || m.tour is bool)
+        && (!('active' in m) || m.active is bool)
+        && (!('lang' in m) || (m.lang is string && m.lang.size() <= 80))
+        && (!('mode' in m) || (m.mode is string && m.mode.size() <= 80))
+        && (!('host' in m) || (m.host is string && m.host.size() <= 80))
+        && (!('path' in m) || (m.path is string && m.path.size() <= 80))
+        // score: oyunun kuramsal tavanı ~2870 (aşağıda validScore'a bak); seconds: istemci >= 0 tamsayı üretir.
+        && (!('score' in m) || (m.score is int && m.score >= 0 && m.score <= 3000))
+        && (!('seconds' in m) || (m.seconds is int && m.seconds >= 0 && m.seconds <= 1000000));
+    }
+
+    // ---- Anonim olaylar: herkes yazabilir (doğrulamalı), yalnızca yönetici okur ----
+    function validEvent(d) {
+      return d.keys().hasOnly(['type', 'data', 'session', 'visitor', 'ref', 'lang', 'device', 'mode', 'at'])
+        && d.keys().hasAll(['type', 'data', 'session', 'visitor', 'ref', 'lang', 'device', 'mode', 'at'])
+        && d.type is string && d.type.size() > 0 && d.type.size() <= 24
+        && d.session is string && d.session.size() > 0 && d.session.size() <= 40
+        && d.visitor is string && d.visitor.size() > 0 && d.visitor.size() <= 40
+        && d.ref is string && d.ref.size() <= 40
+        && d.lang in ['tr', 'en']
+        && d.device in ['mobile', 'desktop']
+        && d.mode in ['game', 'classic']
+        && d.data is map && validData(d.data)
+        // Zaman: istemci saati (ms, tamsayı). Geçmişe en çok 2 gün, geleceğe en çok 5 dakika sapabilir.
+        && d.at is int
+        && d.at > request.time.toMillis() - 172800000
+        && d.at < request.time.toMillis() + 300000;
+    }
+
+    // Belge kimlikleri istemcide üretilir: SDK otomatik kimliği ve REST'teki randomId() 20 harf/rakamdır.
+    function validId(id) {
+      return id.matches('^[A-Za-z0-9]{20}$');
+    }
+
+    match /events/{id} {
+      allow create: if validId(id) && validEvent(request.resource.data);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ---- Ziyaretçi defteri: herkes "bekliyor" durumunda mesaj bırakır; yönetici onaylar ----
+    function validEntry(d) {
+      return d.keys().hasOnly(['name', 'message', 'status', 'createdAt'])
+        && d.keys().hasAll(['name', 'message', 'status', 'createdAt'])
+        && d.name is string && d.name.matches('^[^\\n\\r]{1,40}$')
+        && d.message is string && d.message.size() >= 3 && d.message.size() <= 280
+        && d.status == 'pending'
+        && d.createdAt == request.time;
+    }
+
+    match /guestbook/{id} {
+      allow create: if validId(id) && validEntry(request.resource.data);
+      allow get: if resource.data.status == 'approved' || isAdmin();
+      // Herkese açık liste sorgusu where('status', '==', 'approved') ve limit(<=50) içermelidir
+      // (store.js listApproved); yönetici sorguları isAdmin() ile geçer.
+      // NOT: "offset == 0" koşulu, offset verilmeyen sorguda değerin 0 olduğu varsayımına dayanır;
+      // meşru sorguyu reddederse bu koşul kaldırılacak.
+      allow list: if (resource.data.status == 'approved' && request.query.limit <= 50 && request.query.offset == 0) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- Mini oyun skor tablosu: herkes okur ve doğrulamalı skor ekler; yalnızca yönetici siler ----
+    function validScore(d) {
+      return d.keys().hasOnly(['name', 'score', 'at'])
+        && d.keys().hasAll(['name', 'score', 'at'])
+        && d.name is string && d.name.matches('^[A-Z0-9]{3}$')
+        // Oyunun kuramsal tavanı: ~49 satır x en çok 2 hata, seri çarpanıyla ~2870. Tavan 3000 (validData.score ile aynı).
+        && d.score is int && d.score >= 0 && d.score <= 3000
+        && d.at == request.time;
+    }
+
+    match /scores/{id} {
+      allow get: if true;
+      // Herkese açık tablo en çok 10 satır ister (minigame.js TOP_N = 10); yönetici (limit 200) isAdmin() ile.
+      // NOT: "offset == 0" koşulu, offset verilmeyen sorguda değerin 0 olduğu varsayımına dayanır;
+      // meşru sorguyu reddederse bu koşul kaldırılacak.
+      allow list: if (request.query.limit <= 10 && request.query.offset == 0) || isAdmin();
+      allow create: if validId(id) && validScore(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Geri kalan her şey kapalı
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

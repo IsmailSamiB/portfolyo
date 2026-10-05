@@ -1,0 +1,23 @@
+node_modules
+dist
+.vite
+*.log
+
+# Kişisel fotoğraflar ve ham görseller (yayına girmez)
+assets-src/
+
+# Araç ve ortam dosyaları
+.env*
+.firebase/
+
+# Yanlışlıkla girmesin: CV ve gizli anahtarlar
+*.pdf
+*.pem
+*.key
+serviceAccount*.json
+
+# İşletim sistemi / editör artıkları
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
