@@ -43,7 +43,18 @@
     0 0 0 8px var(--wood-dark),
     12px 12px 0 8px var(--shadow);
 }
+.title-main,
+.title-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+}
 .title-greet {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   margin: 0;
   color: var(--green-dark);
   font-size: var(--fs-lg);
@@ -124,6 +135,60 @@
     transform: scale(1.06);
   }
 }
+/* Kısa ekran (yatay telefon): kart sıkılaşır, geniş ekranda iki sütuna ayrılır; kaydırma gerekmez */
+@media (max-height: 420px) {
+  .title-screen {
+    padding: 8px;
+  }
+  .title-card {
+    gap: 8px;
+    padding: 12px 16px 10px;
+    box-shadow:
+      inset -4px -4px 0 var(--cream-dark),
+      0 0 0 3px var(--wood),
+      0 0 0 6px var(--wood-dark);
+  }
+  .title-main,
+  .title-actions {
+    gap: 6px;
+  }
+  .title-greet {
+    font-size: var(--fs-md);
+  }
+  .title-name {
+    font-size: 38px;
+  }
+  .title-job,
+  .title-tag {
+    font-size: var(--fs-md);
+    line-height: 1.2;
+  }
+  .title-start,
+  .title-start.is-loading {
+    margin-top: 2px;
+    padding: 6px 24px 7px;
+    font-size: var(--fs-lg);
+  }
+  .title-sub {
+    gap: 6px 12px;
+  }
+  .title-tip {
+    font-size: var(--fs-sm);
+    line-height: 1.2;
+  }
+}
+@media (max-height: 420px) and (min-width: 640px) {
+  .title-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    width: min(760px, 100%);
+  }
+  .title-main,
+  .title-actions {
+    flex: 1 1 0;
+  }
+}
 
 /* ---------- Manzara paneli ---------- */
 .view-layer {
@@ -180,6 +245,7 @@
   top: 0;
   left: -6%;
   width: 112%;
+  max-width: none; /* genel img { max-width: 100% } kuralı %112 genişliği kırpmasın */
   height: 100%;
   object-fit: cover;
   image-rendering: pixelated;
@@ -211,7 +277,8 @@
   height: 8px;
   opacity: 0.85;
 }
-.view-curtain {
+/* Pencere perdeleri (görünüm geçişindeki .mode-curtain ile karışmasın diye ayrı ad) */
+.win-curtain {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -220,11 +287,11 @@
   pointer-events: none;
   background: repeating-linear-gradient(90deg, var(--orange) 0 8px, var(--orange-dark) 8px 12px);
 }
-.view-curtain--l {
+.win-curtain--l {
   left: 0;
   clip-path: polygon(0 0, 100% 0, 70% 100%, 0 100%);
 }
-.view-curtain--r {
+.win-curtain--r {
   right: 0;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 30% 100%);
 }
@@ -300,16 +367,16 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 92px 18px 18px 8px;
+  /* Sağ boşluk: eğik (skew) metnin üst satırları sağa kaydığında kartın kenarına dayanmasın */
+  padding: 92px 32px 18px 20px;
   border-left: 3px dashed #d8c39a;
   margin: 12px 0;
-  padding-left: 18px;
 }
 /* Posta pulu: tırtıklı kenar radial-gradient ile */
 .pc-stamp {
   position: absolute;
   top: 0;
-  right: 14px;
+  right: 38px; /* kapat düğmesi (kartın sağ üst köşesi) pulun üstüne binmesin */
   width: 64px;
   height: 76px;
   padding: 8px;
@@ -329,7 +396,7 @@
 .pc-postmark {
   position: absolute;
   top: 14px;
-  right: 62px;
+  right: 86px;
   display: grid;
   place-items: center;
   width: 78px;
@@ -351,7 +418,8 @@
 .pc-title,
 .pc-text {
   transform: skew(-6deg);
-  transform-origin: left bottom;
+  /* Ortadan eğ: kayma üstte sağa, altta sola yarı yarıya bölünür (tek yöne yığılmaz) */
+  transform-origin: left center;
 }
 .pc-title {
   margin: 0 0 8px;
@@ -371,7 +439,7 @@
   display: grid;
   gap: 14px;
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 28px; /* metnin son satırı ilk çizgiye değmesin */
 }
 .pc-lines i {
   display: block;
@@ -388,7 +456,7 @@
   }
   .pc-paper {
     margin: 0 12px 12px;
-    padding: 90px 4px 4px 4px;
+    padding: 90px 14px 6px 12px;
     border-left: 0;
     border-top: 3px dashed #d8c39a;
   }

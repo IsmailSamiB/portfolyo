@@ -28,7 +28,7 @@ defterine mesaj bırakılamaz ve skor tablosu yalnızca o tarayıcıda tutulur.
 
 ## 1) Firebase projesi oluştur
 
-1. <https://console.firebase.google.com> adresine **`<yönetici e-postan>`** (yönetici olacak Google hesabın) ile gir.
+1. <https://console.firebase.google.com> adresine yönetici olacak Google hesabınla gir.
 2. **Proje ekle / Create a project**'e tıkla (Türkçe konsolda "Proje oluştur" da yazabilir).
 3. Bir ad ver (ör. `kisisel-site`).
 4. Google Analytics sorulursa **kapat** (gerek yok) ve projeyi oluştur.
@@ -101,12 +101,22 @@ Bu kurallar şunu sağlar:
 - Ziyaretçiler yalnızca **onaylanmış defter mesajlarını** (en çok 50) ve **skor tablosunu** (en çok
   10 satır, sayfalama/atlama olmadan) okuyabilir. Olaylar (istatistikler) ve onay bekleyen mesajlar
   onlara kapalıdır.
-- İstatistikleri okumak, mesajları onaylamak/silmek ve skorları silmek yalnızca
-  **`<yönetici e-postan>`** hesabına açıktır (Google ile girilmiş ve e-postası doğrulanmış olmalı;
-  normal Gmail hesabında zaten öyledir). Bu adres iki yerde yazılıdır ve aynı olmalıdır:
-  `firestore.rules` içinde `isAdmin()` fonksiyonunda ve `src/data/config.js` içinde `ADMIN_EMAIL`.
+- İstatistikleri okumak, mesajları onaylamak/silmek ve skorları silmek yalnızca yönetici hesabına
+  açıktır. Hesap e-postayla değil Firebase kimliğiyle (UID) tanınır ve Google ile girilmiş olmalıdır.
+  Bu kimlik iki yerde yazılıdır ve aynı olmalıdır: `firestore.rules` içinde `isAdmin()` fonksiyonunda
+  ve `src/data/config.js` içinde `ADMIN_UID`.
 
-Yönetici adresini değiştirmek istersen bu iki yeri birlikte değiştir, sonra kuralları yeniden yayınla.
+**Kendi UID değerini bulmak:**
+
+1. Siteyi (4. adımdaki ayarlarla) aç, `?admin` adresinde Google ile bir kez giriş yap. Henüz kimlik
+   yazılmadığı için "Bu hesabın yetkisi yok" iletisini görmen normaldir.
+2. Firebase konsolunda **Authentication > Kullanıcılar (Users)** sekmesine gir ve kendi satırındaki
+   **User UID** değerini kopyala (`<senin UID değerin>`).
+3. Bu değeri `src/data/config.js` içindeki `ADMIN_UID` ve `firestore.rules` içindeki `isAdmin()`
+   fonksiyonuna yaz.
+4. `firestore.rules` içeriğini yukarıdaki gibi yeniden yayınla (Publish), siteyi yeniden derleyip yayınla.
+
+Yönetici hesabını değiştirmek istersen aynı adımları yeni hesapla tekrarla.
 
 **Doğru yaptıysan:** Kurallar sekmesinde üstte "Yayınlandı / Published" ve yeni bir tarih görünür;
 yapıştırdığın metin `rules_version = '2';` ile başlar.
@@ -163,7 +173,7 @@ Bu yapılmazsa "Google ile giriş yap" penceresi hata verir.
 1. Site adresinin sonuna `?admin` ekle:
    - Yayındaki site: `https://ismailsamib.github.io/portfolyo/?admin`
    - Kendi bilgisayarında: `http://localhost:5173/?admin`
-2. **Google ile giriş yap**'a tıkla ve **`<yönetici e-postan>`** hesabını seç.
+2. **Google ile giriş yap**'a tıkla ve yönetici hesabını seç.
 3. Panelde özet kartları, günlük ziyaret grafiği, şirket etiketleri (`?ref=SirketAdi`), oturumlar,
    skor tablosu ve ziyaretçi defteri (onay bekleyen / yayındaki mesajlar) görünür.
 
@@ -233,7 +243,7 @@ Bu site için anlamı:
 | --- | --- |
 | Panelde "Firebase henüz bağlanmadı" | `src/data/config.js` boş ya da site yeniden yayınlanmadı (4. adım). |
 | Giriş penceresi açılıp hata veriyor | Alan adı yetkili değil (7. adım) ya da Google sağlayıcısı kapalı (3. adım). |
-| "Bu hesabın yetkisi yok" | Yanlış Google hesabıyla girdin; çıkış yapıp doğru hesabı seç. |
+| "Bu hesabın yetkisi yok" | Yanlış Google hesabıyla girdin ya da `ADMIN_UID` henüz yazılmadı / yanlış (5. adımdaki UID bölümü). |
 | "Erişim reddedildi" | Kurallar yayınlanmamış ya da eski (5. adım). |
 | "Sorgu için dizin eksik" | 6. adımdaki iki dizinden biri eksik ya da hâlâ "Building" durumunda. |
 | Ziyaretçi defteri hep boş | Dizin henüz hazır değil (6. adım) ya da onaylanmış mesaj yok. |

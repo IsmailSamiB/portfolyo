@@ -64,6 +64,9 @@ function saveDone() {
   }
 }
 
+// Bu sayfa yüklemesinde oyun görünümü en az bir kez gösterildi mi? (?classic ile gelen ziyaretçi oyunu hiç görmemiştir)
+let gameShown = false;
+
 function isTouch() {
   try {
     return window.matchMedia('(pointer: coarse)').matches;
@@ -231,7 +234,10 @@ export function createHud(root, { onToggleClassic }) {
 
     tourBtn.set(pick(tourActive ? S.hud.tourStop : S.hud.tourStart), tourActive ? '■' : '▶');
     tourBtn.node.classList.toggle('is-active', tourActive);
-    classicBtn.set(pick(classic ? S.hud.backToGame : S.hud.classic), classic ? '◄' : '≡');
+    const classicText = pick(classic ? (gameShown ? S.hud.backToGame : S.hud.exploreRoom) : S.hud.classic);
+    classicBtn.set(classicText, classic ? '◄' : '≡');
+    classicBtn.node.setAttribute('aria-label', classicText);
+    classicBtn.node.title = classicText;
     cvLabel.textContent = pick(S.hud.cv);
 
     const muted = isMuted();
@@ -344,8 +350,13 @@ export function createHud(root, { onToggleClassic }) {
 
   return {
     isTourActive: () => tourActive,
+    markGameShown() {
+      gameShown = true;
+      render();
+    },
     setClassic(active) {
       classic = Boolean(active);
+      if (!classic) gameShown = true;
       if (classic) hideToast();
       render();
     },

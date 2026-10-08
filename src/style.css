@@ -193,7 +193,7 @@ body.is-classic #game {
 }
 
 /* Görünüm geçişi: 10 sütunlu pixel perde (transform + steps) */
-.view-curtain {
+.mode-curtain {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -201,11 +201,11 @@ body.is-classic #game {
   pointer-events: all;
 }
 
-.view-curtain[hidden] {
+.mode-curtain[hidden] {
   display: none;
 }
 
-.view-curtain-col {
+.mode-curtain-col {
   flex: 1 1 0;
   background: var(--bg);
   transform: scaleY(0);
@@ -215,12 +215,12 @@ body.is-classic #game {
   padding-right: 1px;
 }
 
-.view-curtain.is-closing .view-curtain-col {
+.mode-curtain.is-closing .mode-curtain-col {
   animation: curtain-close 126ms steps(3, end) both;
   animation-delay: calc(var(--i) * 6ms);
 }
 
-.view-curtain.is-opening .view-curtain-col {
+.mode-curtain.is-opening .mode-curtain-col {
   transform: scaleY(1);
   transform-origin: bottom;
   animation: curtain-open 166ms steps(3, end) both;
@@ -457,7 +457,7 @@ body.is-classic #game {
 }
 
 .lang-opt {
-  opacity: 0.45;
+  opacity: 0.7;
 }
 
 .lang-opt.is-active {
@@ -1011,7 +1011,9 @@ body.is-classic .hud-top {
 .os-desk {
   position: relative;
   flex: 1 0 auto;
+  /* Kısa ekranda (yatay telefon) panel gövdesinden taşmasın: 150px = katman boşluğu + başlık + görev çubuğu */
   min-height: 430px;
+  min-height: min(430px, calc(100dvh - 150px));
   padding: 18px;
   background-color: #356f58;
   background-image:
@@ -1172,13 +1174,18 @@ body.is-classic .hud-top {
   margin: 0;
 }
 
+/* Kapak kırpılmaz: oranını koruyarak küçülür (genişlik ya da gövde yüksekliği sınırlar), ortalanır.
+   Yükseklik sınırı özet metnine yer bırakır (cqh: .os-win-body kapsayıcısı). */
 .os-win-image {
   display: block;
-  width: 100%;
-  max-height: 220px;
-  margin-bottom: 12px;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: max(100cqh - 150px, 160px);
+  margin: 0 auto 12px;
   border: 3px solid var(--wood-dark);
-  object-fit: cover;
+  aspect-ratio: auto 16 / 9;
+  object-fit: contain;
 }
 
 .os-win-year {
@@ -1356,6 +1363,13 @@ body.is-classic .hud-top {
     padding: 3px 8px 4px;
   }
 
+  /* Sır sayacı ayrı bir satır/çizgi açmaz; sığarsa aynı satıra oturur */
+  .hud-quest .quest-secrets {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+  }
+
   .hud-hint {
     left: calc(8px + var(--safe-l));
     bottom: calc(8px + var(--safe-b));
@@ -1441,6 +1455,85 @@ body.is-classic .hud-top {
 
   .dialog-text {
     font-size: var(--fs-lg);
+  }
+}
+
+/* Kısa ekran (yatay telefon): HUD tek satırlık dar şeride iner, oda görseli örtülmez */
+@media (max-height: 480px) {
+  .hud-top {
+    top: calc(6px + var(--safe-t));
+    left: calc(8px + var(--safe-l));
+    right: calc(8px + var(--safe-r));
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .hud-quest {
+    align-self: flex-start;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    max-width: none;
+    padding: 3px 8px 4px;
+    border-width: 2px;
+  }
+
+  .quest-head {
+    gap: 6px;
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+  }
+
+  .quest-bar {
+    width: 48px;
+    margin-top: 0;
+  }
+
+  .quest-seg {
+    height: 8px;
+    border-width: 2px;
+  }
+
+  .quest-cta,
+  .quest-secrets {
+    display: none;
+  }
+
+  .hud-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .hud-btn {
+    padding: 2px 8px 3px;
+    border-width: 2px;
+    font-size: var(--fs-sm);
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .hud-btn::after {
+    inset: -4px -3px;
+  }
+
+  /* Bildirimler üst çubuğun altından başlar ve birbirinin üstüne binmez */
+  .toast {
+    top: calc(92px + var(--safe-t));
+    padding: 10px 16px 12px;
+  }
+
+  #ui .secret-toast {
+    top: calc(40px + var(--safe-t));
+  }
+
+  .hud-hint {
+    bottom: calc(6px + var(--safe-b));
+    max-width: calc(100% - 140px);
+    padding: 4px 10px;
+    font-size: var(--fs-sm);
   }
 }
 

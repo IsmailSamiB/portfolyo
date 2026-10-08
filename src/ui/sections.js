@@ -61,18 +61,27 @@ export function tagList(tags) {
   );
 }
 
-// Demo / kaynak / ek bağlantı düğmeleri (ek bağlantıda küçük not); link yoksa null döner.
+// Demo / kaynak / ek bağlantı düğmeleri: düğmeler kendi genişliğinde yan yana, ek bağlantı notları
+// düğme satırının altında tam genişlikte (klasik görünümdeki düzen); link yoksa null döner.
 export function projectLinks(project, className) {
   const links = project.links || {};
-  const items = [];
-  const item = (url, label, cls, note) =>
-    el('div', { class: 'link-item' }, extLink(url, label, cls), note && el('p', { class: 'link-note', text: note }));
-  if (links.demo) items.push(item(links.demo, pick(S.projects.demo), `${className} px-btn--accent`));
-  if (links.source) items.push(item(links.source, pick(S.projects.source), className));
+  const buttons = [];
+  const notes = [];
+  const add = (url, label, cls, note) => {
+    const link = extLink(url, label, cls);
+    if (note) {
+      const id = `link-note-${project.id || 'p'}-${notes.length}`;
+      link.setAttribute('aria-describedby', id);
+      notes.push(el('p', { class: 'link-note', id, text: note }));
+    }
+    buttons.push(link);
+  };
+  if (links.demo) add(links.demo, pick(S.projects.demo), `${className} px-btn--accent`);
+  if (links.source) add(links.source, pick(S.projects.source), className);
   (links.extra || []).forEach((x) => {
-    if (x && x.url) items.push(item(x.url, pick(x.label), className, x.note ? pick(x.note) : ''));
+    if (x && x.url) add(x.url, pick(x.label), className, x.note ? pick(x.note) : '');
   });
-  return items.length ? el('div', { class: 'btn-row' }, items) : null;
+  return buttons.length ? el('div', { class: 'link-block' }, el('div', { class: 'btn-row' }, buttons), notes) : null;
 }
 
 function hideOnError(img, target) {
@@ -678,7 +687,8 @@ function contact() {
   const c = content.contact || {};
   const email = c.email || '';
   const status = el('span', { class: 'sr-only', 'aria-live': 'polite' });
-  const copyBtn = el('button', { type: 'button', class: 'px-btn px-btn--big', text: pick(S.contact.copy) });
+  // Birincil eylem (e-posta) vurgulu; diğer bağlantılar krem (klasik görünümle aynı ayrım)
+  const copyBtn = el('button', { type: 'button', class: 'px-btn px-btn--big px-btn--accent', text: pick(S.contact.copy) });
   let resetTimer = null;
   copyBtn.addEventListener('click', async () => {
     const ok = await copyText(email);
@@ -719,7 +729,7 @@ function contact() {
         el(
           'ul',
           { class: 'btn-row contact-links' },
-          links.map((link) => el('li', null, extLink(link.url, link.label, 'px-btn px-btn--big px-btn--accent'))),
+          links.map((link) => el('li', null, extLink(link.url, link.label, 'px-btn px-btn--big'))),
         ),
       ),
     c.note && el('p', { class: 'contact-note', text: pick(c.note) }),

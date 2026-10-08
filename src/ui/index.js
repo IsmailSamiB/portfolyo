@@ -98,6 +98,7 @@ export function initUI() {
   initTitle({
     isClassic: () => classicActive,
     openClassic: () => setClassic(true),
+    onStart: () => hud.markGameShown(),
     ready: loadGameWhenIdle(),
     onProgress: onGameProgress,
   });

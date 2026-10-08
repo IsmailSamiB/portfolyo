@@ -9,6 +9,7 @@ import { el, extLink, safeUrl, toParagraphs, reducedMotion } from './dom.js';
 
 // Yalnızca bu sayfaya ait metinler.
 const T = {
+  skip: { tr: 'İçeriğe atla', en: 'Skip to content' },
   nav: { tr: 'Sayfa içi gezinme', en: 'On-page navigation' },
   numbers: { tr: 'Sayılarla', en: 'In numbers' },
   about: { tr: 'Hakkımda', en: 'About' },
@@ -16,7 +17,7 @@ const T = {
   projects: { tr: 'Projeler', en: 'Projects' },
   experience: { tr: 'Deneyim', en: 'Experience' },
   activities: { tr: 'Aktiviteler', en: 'Activities' },
-  activitiesTitle: { tr: 'Aktiviteler ve Projeler', en: 'Activities & Projects' },
+  activitiesTitle: { tr: 'Aktiviteler', en: 'Activities' },
   education: { tr: 'Eğitim', en: 'Education' },
   certificates: { tr: 'Sertifikalar', en: 'Certificates' },
   languages: { tr: 'Diller', en: 'Languages' },
@@ -50,17 +51,18 @@ const T = {
   prev: { tr: 'Önceki görsel', en: 'Previous image' },
   next: { tr: 'Sonraki görsel', en: 'Next image' },
   foot: {
-    tr: 'Bu CV aslında gezilebilir bir pixel oda: sağ üstteki “Oyuna dön” düğmesiyle odama uğrayabilirsin.',
-    en: 'This CV is also a walkable pixel room: use “Back to game” at the top right to drop by.',
+    tr: 'Bu CV aslında gezilebilir bir pixel oda: sağ üstteki düğmeyle odamı gezebilirsin.',
+    en: 'This CV is actually a walkable pixel room: use the button at the top right to explore it.',
   },
   logoCredit: {
     tr: 'Gdańsk Tech logosu: Wikimedia Commons / Asas077, CC BY-SA 3.0 (pixel görünüme uyarlandı). YTÜ logosu Yıldız Teknik Üniversitesi’nin tescilli markasıdır. Deptron ve AITT logoları ilgili takımlara aittir.',
     en: 'Gdańsk Tech logo: Wikimedia Commons / Asas077, CC BY-SA 3.0 (adapted to pixel art). The YTU logo is a registered trademark of Yıldız Technical University. The Deptron and AITT logos belong to their respective teams.',
   },
   privacy: {
-    tr: 'Tarayıcında rastgele bir ziyaretçi kimliği saklanır ve hangi bölümlerin açıldığı gibi anonim kullanım bilgisi kaydedilir; ad, e-posta ve IP adresi kaydedilmez. Ziyaretçi defterine yazdığın ad ve mesaj, onaylanırsa yayınlanır.',
-    en: 'A random visitor ID is stored in your browser and anonymous usage info, such as which sections are opened, is recorded; no name, email or IP address is recorded. A name and message left in the guestbook are published if approved.',
+    tr: 'Tarayıcında rastgele bir ziyaretçi kimliği saklanır; hangi bölümlerin açıldığı, başvuru bağlantısındaki şirket etiketi ve tıkladığın dış bağlantının adresi gibi anonim kullanım bilgisi Google Firebase’de tutulur. Ad, e-posta ve IP adresi kaydedilmez. Tarayıcında "izleme" kapalıysa hiçbiri kaydedilmez. Deftere yazdığın ad ve mesaj, onaylanırsa yayınlanır.',
+    en: 'A random visitor ID is stored in your browser; anonymous usage info, such as which sections are opened, the company tag in an application link and the address of an external link you click, is kept in Google Firebase. No name, email or IP address is recorded. If your browser’s "do not track" is on, none of it is recorded. A name and message left in the guestbook are published if approved.',
   },
+
 };
 
 const NAV = ['skills', 'projects', 'experience', 'education', 'activities', 'guestbook', 'contact'];
@@ -351,7 +353,7 @@ const LB_SLIDE = 90;
 const LB_SAFETY = 150;
 const LB_EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 const LB_FRAME_EXTRA = 8; // çerçevenin 4px'lik iki kenarlığı (yatay ve dikey)
-const LB_MAX_W = 1120;
+const LB_MAX_W = 1400; // görselin doğal genişliğini aşmaz (fit)
 const LB_SWIPE = 40;
 
 const lbWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -608,18 +610,24 @@ function createLightbox() {
     const idx = (((start || 0) % items.length) + items.length) % items.length;
     const t = (token += 1);
     navigating = false;
-    if (!overlay.hidden) {
+    if (state === 'open') {
       // Zaten açık: animasyonsuz değiştir.
       const size = await lbPreload(safeUrl(items[idx].src));
-      if (t !== token) return;
+      if (t !== token || state !== 'open') return;
       lbClear(frame);
       swap(idx, size);
       return;
     }
+    // Kapalı ya da açılıyor: açılış akışı (yeni öğelerle) baştan yürür; dinleyiciler aynı işlevle olduğundan ikilenmez.
+    lbClear(overlay, frame);
     state = 'opening';
     revealed = false;
     index = idx;
     target = idx;
+    // Güvenlik ağı: açılış makul sürede görünür olmazsa temiz kapat.
+    setTimeout(() => {
+      if (t === token && state === 'opening' && !revealed) finishClose();
+    }, 4000 + 400 + LB_SAFETY + 600);
     overlay.style.visibility = 'hidden';
     overlay.hidden = false;
     document.body.classList.add('cl-lb-open');
@@ -936,6 +944,14 @@ function build(ctx) {
   ctx.navLinks = navLinks;
   ctx.navList = navList;
   const bar = el('nav', { class: 'cl-bar', 'aria-label': pick(T.nav) }, el('div', { class: 'cl-bar-in' }, navList));
+  // Dar ekranda menü yatay kayar: kaydırılabilecek kenarda kısa bir solma gösterilir.
+  const fadeNav = () => {
+    const room = navList.scrollWidth - navList.clientWidth;
+    navList.style.setProperty('--fade-l', room > 2 && navList.scrollLeft > 2 ? '28px' : '0px');
+    navList.style.setProperty('--fade-r', room > 2 && room - navList.scrollLeft > 2 ? '28px' : '0px');
+  };
+  navList.addEventListener('scroll', fadeNav, { passive: true });
+  ctx.fadeNav = fadeNav;
 
   // --- Kahraman ---
   const contactLinks = c.links || [];
@@ -946,7 +962,8 @@ function build(ctx) {
       alt: `${p.name || ''} ${pick(T.photoAlt)}`.trim(),
       width: 240,
       height: 240,
-      loading: 'lazy',
+      loading: 'eager',
+      fetchpriority: 'high',
       decoding: 'async',
     });
     photo = el('figure', { class: 'cl-photo' }, img);
@@ -1021,9 +1038,21 @@ function build(ctx) {
   function thumbImage(src) {
     // decoding: sync -> yüklenir yüklenmez boyanır (async'te kutu boş kalabiliyordu).
     const img = el('img', { alt: '', width: 120, height: 90, decoding: 'sync' });
-    // Yüklenemeyen küçük resim kırık simge yerine boş kutu olarak kalır (CSS: img:not([src])).
-    img.addEventListener('error', () => img.removeAttribute('src'), { once: true });
-    ctx.thumbs.push({ img, src: safeUrl(src) });
+    // Küçük resim thumb-<ad>.webp (scripts/thumbs.mjs); yoksa tam boyutlu dosyaya düşer (tek seferlik).
+    const full = safeUrl(src);
+    const thumb = full && full.replace(/([^/?#]+?)(\.[^./?#]+)?([?#].*)?$/, 'thumb-$1.webp$3');
+    img.addEventListener(
+      'error',
+      () => {
+        // Yüklenemeyen küçük resim kırık simge yerine boş kutu olarak kalır (CSS: img:not([src])).
+        if (thumb && full && img.getAttribute('src') === thumb && thumb !== full) {
+          img.addEventListener('error', () => img.removeAttribute('src'), { once: true });
+          img.src = full;
+        } else img.removeAttribute('src');
+      },
+      { once: true },
+    );
+    ctx.thumbs.push({ img, src: thumb || full });
     return img;
   }
 
@@ -1043,6 +1072,12 @@ function build(ctx) {
         decoding: 'async',
       });
       media = img;
+      // Kareye yakın kapak (grafik) kırpılmaz: yüklenince oranı 16:9'dan belirgin dar ise tamamı gösterilir.
+      const markContain = () => {
+        if (!project.coverCenter && img.naturalWidth && img.naturalHeight && img.naturalWidth / img.naturalHeight < 1.4) img.classList.add('is-contain');
+      };
+      img.addEventListener('load', markContain, { once: true });
+      if (img.complete) markContain();
       // Kapak yüklenemezse yer tutucuya düş.
       img.addEventListener('error', () => img.replaceWith(placeholder(project)), { once: true });
     }
@@ -1282,36 +1317,46 @@ function build(ctx) {
   const experience = content.experience || [];
   const education = content.education || [];
   const certificates = content.certificates || [];
-  const hasEducation = education.length > 0 || certificates.length > 0 || languageGroups.length > 0;
-  // Sol sütun: Deneyim. Sağ sütun: Eğitim + Sertifikalar + Diller.
+  const hasEducation = education.length > 0 || languageGroups.length > 0;
+  // Sol sütun: Deneyim + Sertifikalar (Sertifikalar'ın ayrı menü öğesi yok; Deneyim yoksa Eğitim'e düşer).
+  // Sağ sütun: Eğitim + Diller. Tek sütunda sıra: Deneyim, Sertifikalar, Eğitim, Diller.
+  const certsBox =
+    certificates.length > 0 &&
+    rv(
+      el(
+        'div',
+        { class: 'cl-certs' },
+        el('h3', { class: 'cl-h3', text: pick(T.certificates) }),
+        seq(el('ul', { class: 'cl-cert-list' }, certificates.map((item) => el('li', { text: pick(item) })))),
+      ),
+    );
+  const certsInExperience = experience.length > 0;
   const pathBlock =
-    (experience.length > 0 || hasEducation) &&
+    (experience.length > 0 || hasEducation || certsBox) &&
     el(
       'div',
       { class: 'cl-wrap cl-two' },
-      experience.length > 0 && section('experience', pick(T.experience), timeline(experience)),
-      hasEducation &&
+      experience.length > 0 && section('experience', pick(T.experience), [timeline(experience), certsBox]),
+      (hasEducation || (certsBox && !certsInExperience)) &&
         section('education', pick(T.education), [
           education.length > 0 && timeline(education),
-          certificates.length > 0 &&
-            rv(
-              el(
-                'div',
-                { class: 'cl-certs' },
-                el('h3', { class: 'cl-h3', text: pick(T.certificates) }),
-                seq(el('ul', { class: 'cl-cert-list' }, certificates.map((item) => el('li', { text: pick(item) })))),
-              ),
-            ),
+          !certsInExperience && certsBox,
           languageGroups.map((group) => rv(skillCard(group, 'cl-langs', pick(T.languages)))),
         ]),
     );
 
   // --- Aktiviteler ve Projeler: iki sütunun altında, tam genişlikte ---
-  // Kayıtlar sırası bozulmadan iki zaman çizgisine bölünür. Kayıt ağırlığı 1 + görev sayısıdır;
-  // iki yanın ağırlığını en çok dengeleyen ilk kesim seçilir. Tek kayıt tek sütun olarak kalır.
+  // Kayıtlar sırası bozulmadan iki zaman çizgisine bölünür. Kayıt ağırlığı gerçek yüksekliğe yakındır
+  // (birim ~100px; 488px'lik sütunda ölçüldü): 1,4 (başlık bloğu + kayıt arası boşluk) + görev başına 0,6
+  // (görevin notu dahil) + kayıt notunun uzunluğu başına 0,005 (aktif dilde). İki yanın ağırlığını en çok dengeleyen
+  // ilk kesim seçilir. Tek kayıt tek sütun olarak kalır.
   function splitActivities(items) {
     if (items.length < 2) return [items];
-    const weights = items.map((item) => 1 + (Array.isArray(item.roles) ? item.roles.length : 0));
+    const textLen = (value) => (value ? String(pick(value) || '').length : 0);
+    const weights = items.map((item) => {
+      const roles = Array.isArray(item.roles) ? item.roles : [];
+      return 1.4 + 0.005 * textLen(item.note) + 0.6 * roles.length;
+    });
     const total = weights.reduce((sum, w) => sum + w, 0);
     let cut = 1;
     let best = Infinity;
@@ -1319,7 +1364,7 @@ function build(ctx) {
     for (let i = 1; i < items.length; i += 1) {
       left += weights[i - 1];
       const diff = Math.abs(total - 2 * left);
-      if (diff < best) {
+      if (diff < best - 1e-9) {
         best = diff;
         cut = i;
       }
@@ -1436,6 +1481,16 @@ export function createClassic(root) {
 
   const lightbox = createLightbox();
   let ctx = null;
+  // "İçeriğe atla": body'nin ilk çocuğu (HUD düğmelerinden önce, ilk Tab durağı); yalnızca klasik görünümde ve odakta görünür.
+  const skipLink = el('a', {
+    class: 'cl-skip',
+    href: '#cl-about',
+    hidden: true,
+    onclick: (event) => {
+      if (ctx) ctx.goTo(event, 'about');
+    },
+  });
+  document.body.prepend(skipLink);
   let active = false;
   let currentNav = null;
   let preferredNav = null; // son tıklanan bağlantı: aynı hizadaki bölümlerde o vurgulanır
@@ -1455,6 +1510,7 @@ export function createClassic(root) {
     const bar = root.querySelector('.cl-bar');
     if (bar && bar.offsetHeight > 0) root.style.setProperty('--bar-h', `${bar.offsetHeight}px`);
     if (ctx && ctx.fitClamps) ctx.fitClamps();
+    if (ctx && ctx.fadeNav) ctx.fadeNav();
   }
 
   function watchSizes() {
@@ -1472,7 +1528,8 @@ export function createClassic(root) {
 
   function barHeight() {
     const bar = root.querySelector('.cl-bar');
-    return bar ? bar.offsetHeight : 0;
+    // Alçak ekranda çubuk yapışkan değildir (içerikle kayar): başlıkları örtmez, referans çizgisine katılmaz.
+    return bar && getComputedStyle(bar).position === 'sticky' ? bar.offsetHeight : 0;
   }
 
   // Kaydırma konumuna göre gezinmede etkin bölümü vurgula.
@@ -1656,6 +1713,7 @@ export function createClassic(root) {
     };
     const context = ctx;
     root.replaceChildren(build(context));
+    skipLink.textContent = pick(T.skip);
     currentNav = null;
 
     if (context.animate) {
@@ -1744,6 +1802,7 @@ export function createClassic(root) {
     setActive(next) {
       active = Boolean(next);
       root.hidden = !active;
+      skipLink.hidden = !active;
       document.body.classList.toggle('is-classic', active);
       if (active) {
         startIntro();

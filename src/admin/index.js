@@ -2,7 +2,7 @@
 // Tüm içerik güvenli DOM ile (textContent) yazılır.
 import './admin.css';
 import { el } from '../ui/dom.js';
-import { isRemote, admin } from '../data/store.js';
+import { isRemote, admin, EVENTS_LIMIT } from '../data/store.js';
 import {
   summarize,
   dailyVisits,
@@ -344,11 +344,11 @@ export function initAdmin() {
   const shortName = (name) => String(name ?? '').slice(0, 40);
 
   // Dikkat çekmeyen ama yanlışlıkla basılmayacak toplu silme düğmesi (tek onay penceresi)
-  function bulkButton(text, count, onConfirm) {
+  function bulkButton(text, count, onConfirm, message) {
     const btn = el('button', { class: 'adm-btn adm-btn--quiet', type: 'button', text });
     btn.addEventListener('click', async () => {
       if (!count) return;
-      if (!window.confirm(`${count} kayıt kalıcı olarak silinsin mi? Bu işlem geri alınamaz.`)) return;
+      if (!window.confirm(message || `${count} kayıt kalıcı olarak silinsin mi? Bu işlem geri alınamaz.`)) return;
       btn.disabled = true;
       try {
         await onConfirm();
@@ -501,9 +501,26 @@ export function initAdmin() {
       const events = await admin.events({ days });
       if (token !== loadToken) return;
       content.replaceChildren(...dashboard(events, days));
+      if (isRemote()) {
+        content.append(
+          section(
+            'Veri bakımı',
+            bulkButton(
+              '30 günden eski olayları sil',
+              1,
+              async () => {
+                const n = await admin.purgeOldEvents();
+                await load();
+                setStatus(n ? `${n} eski olay silindi.${n >= 400 ? ' Daha fazlası olabilir; düğmeye yeniden bas.' : ''}` : 'Silinecek eski olay yok.');
+              },
+              '30 günden eski olaylardan en çok 400 kayıt kalıcı olarak silinsin mi? Bu işlem geri alınamaz.',
+            ),
+          ),
+        );
+      }
       setStatus(
-        events.length >= 5000
-          ? 'Not: en yeni 5000 olay gösteriliyor; daha eski olaylar bu aralığa dahil edilmedi.'
+        events.length >= EVENTS_LIMIT
+          ? `Not: son ${EVENTS_LIMIT} olay gösteriliyor; daha eski olaylar bu aralığa dahil edilmedi.`
           : events.length
             ? ''
             : 'Bu aralıkta kayıtlı olay yok.',
@@ -641,7 +658,7 @@ export function initAdmin() {
 
   setStatus('Oturum denetleniyor…');
   admin.onAuth((next) => {
-    const same = user && next && user.email === next.email;
+    const same = user && next && user.uid === next.uid;
     user = next;
     if (!next) {
       if (!deniedShown) showLogin(); // yetkisiz çıkış sonrası ileti silinmesin

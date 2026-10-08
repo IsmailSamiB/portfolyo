@@ -44,8 +44,8 @@ const T = {
     tr: ['hat', 'istasyon', 'yaş', 'yolcu'],
     en: ['line', 'station', 'age', 'riders'],
   },
-  low: { tr: 'Veri hâlâ kirli ama iyi başlangıç.', en: 'The data is still dirty, but a good start.' },
-  mid: { tr: 'Temiz iş.', en: 'Clean work.' },
+  low: { tr: 'Veri hâlâ kirli ama iyi başlangıç.', en: 'Still some dirty data, but a good start.' },
+  mid: { tr: 'Temiz iş.', en: 'Nice and clean.' },
   high: { tr: 'Veri tertemiz!', en: 'Squeaky-clean data!' },
   top: { tr: 'EN İYİ 10', en: 'TOP 10' },
   loading: { tr: '…', en: '…' },
@@ -197,7 +197,7 @@ export function cleanNick(value) {
   return s.padEnd(NICK_LEN, 'A');
 }
 
-// Skor ilk 10'a giriyor mu? (rows azalan sıralı)
+// Skor ilk 10’a giriyor mu? (rows azalan sıralı)
 export function qualifies(rows, score) {
   if (!(score > 0)) return false;
   return rows.length < TOP_N || score > rows[rows.length - 1].score;
@@ -512,7 +512,7 @@ export function initMinigame() {
           ),
           el('p', { class: 'mg-intro', text: pick(T.intro) }),
           el('p', { class: 'mg-best', text: `${pick(T.best)}: ${readBest()}` }),
-          el('p', { class: 'mg-keys', text: pick(T.keys) }),
+          window.matchMedia('(hover: hover) and (pointer: fine)').matches && el('p', { class: 'mg-keys', text: pick(T.keys) }),
         ),
         boardBox(),
       ),
@@ -795,7 +795,7 @@ export function initMinigame() {
     }
     g = null;
     ui = null;
-    // Rumuz girişi: tablo yüklenince ilk 10'a girip girmediğine karar verilir
+    // Rumuz girişi: tablo yüklenince ilk 10’a girip girmediğine karar verilir
     entry = { phase: st.score > 0 ? 'wait' : 'none', chars: readNick().split(''), idx: 0, note: '' };
     renderEnd(true);
   }
@@ -1006,3 +1006,4 @@ export function initMinigame() {
   render();
   return open;
 }
+

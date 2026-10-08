@@ -3,7 +3,7 @@
 // Firebase SDK'sı yalnızca ilk ihtiyaçta import() ile yüklenir. Bu modül yüklenirken yan etki yoktur.
 // KİŞİSEL VERİ YOK: IP, user agent, ad, e-posta toplanmaz; kimlikler rastgele üretilir.
 
-import { firebaseConfig, ADMIN_EMAIL } from './config.js';
+import { firebaseConfig, ADMIN_UID } from './config.js';
 import { visitorRef } from '../content/game-text.js';
 import { lang } from '../i18n.js';
 
@@ -159,13 +159,23 @@ function wire() {
   window.addEventListener('pagehide', () => flush(true));
 }
 
+function trackingOptOut() {
+  try {
+    return navigator.globalPrivacyControl === true || navigator.doNotTrack === '1';
+  } catch {
+    return false;
+  }
+}
+
 // Anonim kullanım olayı. type: kısa ad ('visit', 'panel', 'interact', 'secret', 'tour', 'cv', 'link', 'game', 'leave'...)
 // data: küçük düz nesne (string/number/boolean alanlar)
 export function track(type, data = {}) {
   try {
     if (typeof type !== 'string' || !type) return;
-    if (!underLimit()) return;
     const remote = isRemote();
+    // Tarayıcı "izleme" istemiyorsa (GPC / DNT) uzaktan olay gönderilmez, ziyaretçi kimliği saklanmaz.
+    if (remote && trackingOptOut()) return;
+    if (!underLimit()) return;
     const event = {
       type: type.slice(0, 24),
       data: cleanData(data),
@@ -336,7 +346,7 @@ export const guestbook = {
 
 const SCORE_KEY = 'minigame:scores';
 const SCORE_LOCAL_MAX = 10;
-const SCORE_MAX = 5000;
+const SCORE_MAX = 3000; // firestore.rules ile aynı
 
 // Skor azalan, eşitlikte eski olan önce
 function byScore(a, b) {
@@ -428,8 +438,7 @@ export const scores = {
 
 function toUser(user) {
   if (!user) return null;
-  const email = user.email || '';
-  return { email, isAdmin: email.toLowerCase() === ADMIN_EMAIL.toLowerCase() };
+  return { uid: user.uid || '', email: user.email || '', isAdmin: user.uid === ADMIN_UID };
 }
 
 // Firestore isteğinden önce oturum belirteci hazır olmalı
@@ -473,7 +482,33 @@ async function deleteMany(collectionName, ids) {
   }
 }
 
+export const EVENTS_LIMIT = 1500;
+const OLD_DAYS = 30;
+const OLD_BATCH = 400;
+
+function tidyData(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, value] of Object.entries(raw)) out[tidy(key)] = typeof value === 'string' ? tidy(value) : value;
+  return out;
+}
+
 export const admin = {
+  // 30 günden eski olaylardan en çok 400 tanesini siler -> silinen sayı
+  async purgeOldEvents() {
+    if (!isRemote()) return 0;
+    const fb = await adminDb();
+    const before = Date.now() - OLD_DAYS * 86400000;
+    const snap = await fb.getDocs(
+      fb.query(fb.collection(fb.db, 'events'), fb.where('at', '<', before), fb.orderBy('at'), fb.limit(OLD_BATCH)),
+    );
+    if (snap.empty) return 0;
+    const batch = fb.writeBatch(fb.db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    return snap.size;
+  },
+
   // -> { email } | null
   async signIn() {
     if (!isRemote()) return null;
@@ -530,17 +565,17 @@ export const admin = {
     }
     const fb = await adminDb();
     const snap = await fb.getDocs(
-      fb.query(fb.collection(fb.db, 'events'), fb.where('at', '>=', since), fb.orderBy('at', 'desc'), fb.limit(5000)),
+      fb.query(fb.collection(fb.db, 'events'), fb.where('at', '>=', since), fb.orderBy('at', 'desc'), fb.limit(EVENTS_LIMIT)),
     );
     return snap.docs.map((d) => {
       const data = d.data();
       return {
         id: d.id,
         type: String(data.type ?? ''),
-        data: data.data && typeof data.data === 'object' ? data.data : {},
+        data: tidyData(data.data),
         session: String(data.session ?? ''),
         visitor: String(data.visitor ?? ''),
-        ref: String(data.ref ?? ''),
+        ref: tidy(data.ref),
         lang: String(data.lang ?? ''),
         device: String(data.device ?? ''),
         mode: String(data.mode ?? ''),

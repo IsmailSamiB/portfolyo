@@ -30,19 +30,19 @@ export function introLines(name, title, ref) {
     tr: [
       ref ? `Merhaba ${ref} ekibi, hoş geldiniz! Ben ${name}.` : `Merhaba, hoş geldin! Ben ${name}.`,
       `${title}. Burası benim odam: bilgisayarda projelerim, kitaplıkta yeteneklerim, panoda hikâyem, telefonda iletişim bilgilerim var.`,
-      'Vaktin azsa “Beni gezdir” düğmesi her şeyi 30 saniyede gösterir. Çıkmadan ziyaretçi defterine bir not bırakabilirsin.',
+      'Vaktin azsa “Beni gezdir” düğmesi dört bölümü 30 saniyede gösterir. Çıkmadan ziyaretçi defterine bir not bırakabilirsin.',
     ],
     en: [
-      ref ? `Hello ${ref} team, welcome! I'm ${name}.` : `Hi, welcome! I'm ${name}.`,
-      `${title}. This is my room: projects on the computer, skills on the bookshelf, my story on the corkboard and contact details by the phone.`,
-      'Short on time? The “Take the tour” button shows everything in 30 seconds. Feel free to sign the guestbook before you leave.',
+      ref ? `Hello ${ref} team, welcome! I’m ${name}.` : `Hi, welcome! I’m ${name}.`,
+      `${title}. This is my room: projects on the computer, skills on the bookshelf, my story on the corkboard and contact details on the phone.`,
+      'Short on time? The “Take the tour” button shows the four sections in 30 seconds. Feel free to sign the guestbook before you leave.',
     ],
   };
 }
 
 export const TOUR_END = {
   tr: 'Tur bitti! İstersen odada dolaşmaya devam et, telefondan bana ulaş ya da ziyaretçi defterine bir not bırak.',
-  en: "That's the tour! Feel free to keep exploring, reach me through the phone, or sign the guestbook.",
+  en: "That’s the tour! Feel free to keep exploring, reach me through the phone, or sign the guestbook.",
 };
 
 // Sessiz etkileşimlerde eşyanın üstünde beliren kısa etiketler
@@ -123,3 +123,4 @@ export const FLAVOR = {
     en: 'Photos on the wall: family, friends and a few good sunsets.',
   },
 };
+

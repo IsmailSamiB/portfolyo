@@ -12,6 +12,7 @@ export const firebaseConfig = {
   appId: '1:704454579897:web:9628198ee676e69e59ad68',
 };
 
-// Yönetici paneline (…/?admin) girebilecek tek Google hesabı.
-// Değiştirirsen firestore.rules içindeki adresi de değiştir.
-export const ADMIN_EMAIL = 'basaraner1629@gmail.com';
+// Yönetici paneline (…/?admin) girebilecek tek hesabın Firebase kimliği
+// (Authentication > Users > User UID). Değişirse firestore.rules içindeki değer de değişmeli.
+// Gizli değildir; güvenliği firestore.rules sağlar.
+export const ADMIN_UID = '6MIyPfqOOvNJqV3J6fUGdMl3rFI2';

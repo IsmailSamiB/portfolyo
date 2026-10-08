@@ -37,15 +37,13 @@
 
 /* ---------- Ortak ---------- */
 
-.link-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 100%;
+/* Bağlantı düğmeleri kendi genişliğinde yan yana; notlar satırın altında tam genişlikte */
+.link-block .btn-row {
+  margin: 0;
 }
 
 .link-note {
-  margin: 0;
+  margin: 8px 0 0;
   color: var(--wood);
   font-size: var(--fs-md);
   line-height: var(--lh-ui);
@@ -106,11 +104,19 @@
   box-shadow: inset -3px -3px 0 var(--orange-dark), 3px 3px 0 var(--shadow);
 }
 
-/* Geniş panelde satır çok uzamasın: paragraf bir kademe büyük */
+/* Sekme değişince panel zıplamasın: yükseklik sabit, içerik gövdede kayar (dar ekranda panel zaten tam ekran) */
+@media (min-width: 641px) {
+  .panel[data-panel='about'] {
+    height: min(760px, calc(100vh - 32px));
+    height: min(760px, calc(100dvh - 32px));
+  }
+}
+
+/* Gövde metni tüm sekmelerde aynı boyut (zaman çizelgesi notlarıyla aynı: --fs-md) */
 .tabpanel > .prose p {
   margin: 0 0 12px;
-  font-size: var(--fs-lg);
-  line-height: 1.3;
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
 }
 
 /* Eğitim: solda okul logosu, sağda mevcut metin */
@@ -145,6 +151,11 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0 12px;
+}
+
+/* Listede logolu kayıt varsa logosuzların metni de aynı sütundan başlar: logo 48 + çerçeve 6 + boşluk 12 */
+.panel .timeline:has(.timeline-item--logo) > .timeline-item:not(.timeline-item--logo) {
+  padding-left: 66px;
 }
 
 .tabpanel > .timeline:first-child {
@@ -193,6 +204,78 @@
   min-width: 0;
 }
 
+/* Etiket iki satırlık yer tutar, tarih kutunun dibine yaslanır: aynı satırdaki tarihler hizalı kalır */
+.os-icon-label {
+  min-height: 2.3em; /* 2 satır × 1.15 */
+}
+
+.os-icon-date {
+  margin-top: auto;
+}
+
+/* Alttaki ipucu satırı (.os-hint, mutlak konumlu) son simge satırının üstüne binmesin */
+.os-icons {
+  margin-bottom: 30px;
+}
+
+/* Geniş panelde 3 sütun: en uzun başlık da iki satıra sığar (kısa ekranda tek satır simge kalır) */
+@media (min-width: 641px) and (min-height: 481px) {
+  .os-icons {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+/* Proje penceresi açıkken: panel ekran yüksekliğini kullanır, masaüstü kalan alanı doldurur ve
+   tek kaydırma alanı pencere gövdesidir (panel gövdesi ve masaüstü kaymaz). */
+.panel-body--projects:has(.os-win) {
+  overflow: hidden;
+}
+
+.panel-body--projects:has(.os-win) .os {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.panel .os-desk:has(.os-win) {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 641px) {
+  .panel[data-panel='projects']:has(.os-win) {
+    width: min(1000px, 100%);
+    height: min(960px, calc(100vh - 32px));
+    height: min(960px, calc(100dvh - 32px));
+    max-height: none;
+  }
+
+  .panel .os-win {
+    inset: 8px;
+  }
+
+  .panel .os-win-body {
+    padding: 12px 18px 14px;
+  }
+}
+
+/* Kısa ekran (yatay telefon): pencere masaüstünü tamamen kaplar */
+@media (max-height: 480px) {
+  /* Yatay telefonda 6 simge tek satıra sığsın */
+  .os-icons {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+
+  .panel .os-win {
+    inset: 0;
+  }
+
+  /* Gövde çok alçak: görsel gövdeye sığacak diye pul kadar kalmasın, pencere içinde kaydırılır */
+  .panel .gal:not(.is-portrait) {
+    max-height: 260px;
+  }
+}
+
 .os-ico-wrap {
   display: block;
   line-height: 0;
@@ -233,8 +316,7 @@
 }
 
 .os-win-body .findings,
-.os-win-body .tags,
-.os-win-body .btn-row {
+.os-win-body .tags {
   margin-top: 12px;
 }
 
@@ -289,11 +371,12 @@
 /* Görsel gezgini */
 /* Yatay görsel: kare alanı (16:9) kendi satırında; altyazı ve ◄ ► ayrı satırlar, görselin üstüne binmez.
    Pencere gövdesi alçaksa (cqh: .os-win-body kapsayıcısı) çerçeve küçülür, görsel object-fit: contain ile
-   tamamen sığar; altyazı uzarsa görsel o kadar küçülür. */
+   tamamen sığar; altyazı uzarsa görsel o kadar küçülür. 70px: altta tarih + özetin ilk satırı görünür kalır
+   (aşağıda metin olduğu anlaşılsın). */
 .gal {
   display: flex;
   flex-direction: column;
-  max-height: max(100cqh, 200px);
+  max-height: max(100cqh - 70px, 200px);
   margin: 0;
 }
 
@@ -419,6 +502,13 @@
 
 .skills {
   gap: 16px;
+}
+
+/* 4 kart 2×2 (3+1 yerine); dar ekranda style.css'teki auto-fit tek sütuna iner */
+@media (min-width: 641px) {
+  .panel .skills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .skill-card {

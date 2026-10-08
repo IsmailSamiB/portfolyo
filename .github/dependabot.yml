@@ -5,8 +5,18 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Proje bilerek Phaser 3 ve Vite 7'de; büyük sürümler elle yükseltilir
+    ignore:
+      - dependency-name: phaser
+        update-types: ["version-update:semver-major"]
+      - dependency-name: vite
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Yayın akışı eylemleri tek PR'da gelsin (yükleme/yayınlama sürümleri uyumlu kalsın)
+    groups:
+      actions:
+        patterns: ["*"]

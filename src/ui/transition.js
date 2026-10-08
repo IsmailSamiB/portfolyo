@@ -13,11 +13,11 @@ export function createCurtain() {
   function build() {
     const cols = [];
     for (let i = 0; i < COLS; i++) {
-      const col = el('i', { class: 'view-curtain-col' });
+      const col = el('i', { class: 'mode-curtain-col' });
       col.style.setProperty('--i', String(i));
       cols.push(col);
     }
-    curtain = el('div', { class: 'view-curtain', 'aria-hidden': 'true', hidden: true }, cols);
+    curtain = el('div', { class: 'mode-curtain', 'aria-hidden': 'true', hidden: true }, cols);
     document.body.append(curtain);
   }
 

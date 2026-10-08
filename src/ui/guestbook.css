@@ -106,15 +106,15 @@
 }
 
 .gb-btn--accent {
-  background: var(--orange);
+  background: var(--orange-dark);
   color: #fff6e0;
   box-shadow:
-    inset -3px -3px 0 var(--orange-dark),
+    inset -3px -3px 0 #7a2c0e,
     3px 3px 0 var(--shadow);
 }
 
 .gb-btn--accent:hover:not(:disabled) {
-  background: #e8763f;
+  background: #b94d21;
 }
 
 .gb-status {
@@ -245,6 +245,9 @@
   padding: 16px;
   overflow: auto;
   background: rgba(24, 14, 28, 0.78);
+  /* Ekran klavyesi açıkken JS --vvh/--vvt yazar: katman görünür alana oturur (yoksa inset: 0 geçerli) */
+  top: var(--vvt, 0);
+  height: var(--vvh, auto);
 }
 
 body.is-classic .gb-layer {
@@ -326,7 +329,7 @@ body.is-classic .gb-layer {
   min-width: 0;
   min-height: 380px;
   max-height: calc(100vh - 90px);
-  max-height: calc(100dvh - 90px);
+  max-height: calc(var(--vvh, 100dvh) - 90px);
   padding: 18px 20px 16px;
   overflow: auto;
   background-color: #fbf0d9;
@@ -442,7 +445,7 @@ body.is-classic .gb-layer {
   .gb-page {
     min-height: 0;
     max-height: calc(100vh - 150px);
-    max-height: calc(100dvh - 150px);
+    max-height: calc(var(--vvh, 100dvh) - 150px);
     padding: 14px 12px 12px;
   }
 

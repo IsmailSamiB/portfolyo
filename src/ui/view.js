@@ -35,8 +35,8 @@ function build() {
     'div',
     { class: 'view-glass' },
     img,
-    el('span', { class: 'view-curtain view-curtain--l', 'aria-hidden': 'true' }),
-    el('span', { class: 'view-curtain view-curtain--r', 'aria-hidden': 'true' }),
+    el('span', { class: 'win-curtain win-curtain--l', 'aria-hidden': 'true' }),
+    el('span', { class: 'win-curtain win-curtain--r', 'aria-hidden': 'true' }),
   );
   const win = el('div', { class: 'view-window' }, glass);
   const titleEl = el('h2', { class: 'view-title', id: 'view-title' });

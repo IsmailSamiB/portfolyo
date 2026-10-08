@@ -374,7 +374,7 @@ export default class RoomScene extends Phaser.Scene {
       act: key(K.E),
       space: key(K.SPACE),
     };
-    this.input.on('pointerdown', (pointer) => this.handleTap(pointer.worldX, pointer.worldY));
+    this.input.on('pointerdown', (pointer) => this.handleTap(pointer.worldX, pointer.worldY, pointer.wasTouch));
   }
 
   createBridge() {
@@ -397,6 +397,7 @@ export default class RoomScene extends Phaser.Scene {
         if (id === 'piano' && this.pose) this.standUp();
       }),
       on('piano:note', () => this.fx.note.emitParticleAt(22 + Phaser.Math.Between(-8, 8), 92, 1)),
+      on('lang:changed', () => this.fitCamera()), // HUD satır sayısı dile göre değişebilir
       on('tour:start', () => this.runTour()),
       on('tour:stop', () => this.stopTour()),
     ];
@@ -408,9 +409,26 @@ export default class RoomScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const fit = Math.floor(Math.min(width / (ROOM_W + 16), height / (ROOM_H + 16)));
     // Dar (dikey) ekranda oda sığmaz; yüksekliğe göre büyüt, kamera karakteri izlesin
-    const tall = width < 600 ? Math.min(4, Math.floor((height - 220) / ROOM_H)) : 0;
-    this.baseZoom = Phaser.Math.Clamp(Math.max(fit, tall), 2, 8);
-    this.snapCamera = true;
+    // Ayrılan pay gerçek HUD yüksekliğine göre ölçülür (üst çubuk + keşif kutusu)
+    const portrait = width < 600 && height > width;
+    let hudBottom = 0;
+    if (portrait) {
+      const hud = document.querySelector('.hud-top');
+      const measured = hud ? hud.getBoundingClientRect().bottom : 0;
+      hudBottom = Math.max(measured, 90);
+    }
+    const tall = width < 600 ? Math.min(4, Math.floor((height - hudBottom - 6) / ROOM_H)) : 0;
+    const zoom = Phaser.Math.Clamp(Math.max(fit, tall), 2, 8);
+    // Oda ortalandığında HUD'ın altına taşıyorsa odayı aşağı kaydır (ekran pikseli)
+    let offY = 0;
+    if (portrait) {
+      const centeredTop = (height - ROOM_H * zoom) / 2;
+      const maxShift = Math.max(0, height - 4 - (centeredTop + ROOM_H * zoom));
+      offY = Phaser.Math.Clamp(hudBottom + 6 - centeredTop, 0, maxShift);
+    }
+    if (zoom !== this.baseZoom || offY !== this.roomOffsetY) this.snapCamera = true;
+    this.baseZoom = zoom;
+    this.roomOffsetY = offY;
   }
 
   // Oda ekrana sığıyorsa ortala, sığmıyorsa karakteri izle
@@ -423,7 +441,7 @@ export default class RoomScene extends Phaser.Scene {
     const at = this.flight ? this.flight : { x: this.px, y: this.py };
     return {
       x: vw >= ROOM_W + pad * 2 ? ROOM_W / 2 : Phaser.Math.Clamp(at.x, vw / 2 - pad, ROOM_W + pad - vw / 2),
-      y: vh >= ROOM_H + pad * 2 ? ROOM_H / 2 : Phaser.Math.Clamp(at.y, vh / 2 - pad, ROOM_H + pad - vh / 2),
+      y: vh >= ROOM_H + pad * 2 ? ROOM_H / 2 - (this.roomOffsetY || 0) / zoom :Phaser.Math.Clamp(at.y, vh / 2 - pad, ROOM_H + pad - vh / 2),
     };
   }
 
@@ -967,7 +985,7 @@ export default class RoomScene extends Phaser.Scene {
     this.cooldownUntil = this.time.now + 250;
   }
 
-  handleTap(x, y) {
+  handleTap(x, y, touch = false) {
     if (this.flight) {
       if (!this.locked && !this.flight.landing) this.flight.target = { x, y: y + 13 };
       return;
@@ -989,9 +1007,7 @@ export default class RoomScene extends Phaser.Scene {
       if (spot) this.walkTo(spot, () => this.trigger({ id: 'cat', kind: 'cat', secret: 'cat' }));
       return;
     }
-    const hit = INTERACTABLES.find(
-      (it) => this.available(it) && x >= it.hit.x && x < it.hit.x + it.hit.w && y >= it.hit.y && y < it.hit.y + it.hit.h,
-    );
+    const hit = this.pickInteractable(x, y, touch);
     const tile = hit ? hit.stand : tileAt(x, y);
     if (!isFree(tile.c, tile.r)) return;
     if (!this.walkTo(tile, hit ? () => this.trigger(hit) : null)) return;
@@ -999,6 +1015,31 @@ export default class RoomScene extends Phaser.Scene {
     this.tap.setPosition(mark.x, mark.y - 2).setVisible(!hit).setAlpha(1);
     this.tweens.killTweensOf(this.tap);
     this.tweens.add({ targets: this.tap, alpha: 0, duration: 700 });
+  }
+
+  // Dokunmada küçük eşyaların alanı en az ~32 ekran pikseline genişler (yalnızca zoom küçükken).
+  // Tam isabet her zaman önceliklidir; yalnızca genişletilmiş alanlara düşüldüğünde en yakın merkez seçilir.
+  pickInteractable(x, y, touch) {
+    const list = INTERACTABLES.filter((it) => this.available(it) && it.hit.w > 0);
+    const inside = (h, px, py) => x >= h.x - px && x < h.x + h.w + px && y >= h.y - py && y < h.y + h.h + py;
+    const exact = list.find((it) => inside(it.hit, 0, 0));
+    if (exact || !touch) return exact;
+    const minWorld = 32 / this.cameras.main.zoom;
+    let best;
+    let bestDist = Infinity;
+    for (const it of list) {
+      const h = it.hit;
+      const px = Math.max(0, (minWorld - h.w) / 2);
+      const py = Math.max(0, (minWorld - h.h) / 2);
+      if (!px && !py) continue;
+      if (!inside(h, px, py)) continue;
+      const d = Math.hypot(x - (h.x + h.w / 2), y - (h.y + h.h / 2));
+      if (d < bestDist) {
+        bestDist = d;
+        best = it;
+      }
+    }
+    return best;
   }
 
   walkTo(tile, onArrive) {

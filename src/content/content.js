@@ -9,39 +9,39 @@
 export default {
   profile: {
     name: 'İsmail Sami Başaraner',
-    title: { tr: 'İstatistik Lisans Öğrencisi', en: 'Statistics Undergraduate Student' },
+    title: { tr: 'İstatistik Lisans Öğrencisi', en: 'Undergraduate Statistics Student' },
     tagline: {
       tr: 'Veriyle çalışmayı öğrenen, ekip işine ve organizasyona yatkın bir istatistik öğrencisiyim.',
-      en: 'A statistics student learning to work with data, at home in teams and in organising things.',
+      en: 'A statistics student learning to work with data, comfortable with teamwork and organising.',
     },
     bio: {
       tr: [
-        'Merhaba! Ben İsmail. Yıldız Teknik Üniversitesi’nde İstatistik okuyorum; 2026 bahar dönemini Erasmus+ ile Gdańsk Teknik Üniversitesi’nde geçirdim.',
-        'Eğitim hayatım boyunca kendimi geliştirebileceğim fırsatları değerlendirmeye önem verdim: lisede arkadaşlarımla İHA takımı kurduk, üniversitede kulüp yönetiminde ve sponsorluk görüşmelerinde yer aldım, yazın veri analizi stajı yaptım.',
-        'Ekip çalışmasına uyum sağlayan, öğrenmeye açık biriyim. Veri analizi araçlarında (R, SQL) hâlâ öğrenme aşamasındayım ve bunu saklamıyorum; her projede bir adım ileri gitmeye çalışıyorum.',
+        "Merhaba! Ben İsmail. Yıldız Teknik Üniversitesi’nde İstatistik okuyorum; 2026 bahar dönemini Erasmus+ ile Gdańsk Teknik Üniversitesi’nde geçirdim.",
+        "Eğitim hayatım boyunca kendimi geliştirebileceğim fırsatları değerlendirmeye önem verdim: lisede arkadaşlarımla İHA takımı kurduk, üniversitede kulüp yönetiminde ve sponsorluk görüşmelerinde yer aldım, yazın veri analizi stajı yaptım.",
+        "Ekip çalışmasına uyum sağlayan, öğrenmeye açık biriyim. Veri analizi araçlarında (R, SQL) hâlâ öğrenme aşamasındayım ve bunu saklamıyorum; her projede bir adım ileri gitmeye çalışıyorum.",
       ],
       en: [
-        "Hi! I'm İsmail. I study Statistics at Yıldız Technical University and spent the spring 2026 term at Gdańsk University of Technology through Erasmus+.",
-        'I try to take every chance to grow: in high school my friends and I founded a UAV team, at university I joined a club’s executive board and took part in sponsorship talks, and I spent a summer as a data analysis intern.',
-        'I work well in teams and I am open to learning. I am still early with data analysis tools (R, SQL) and I would rather say so; I try to get one step better with every project.',
+        "Hi! I’m İsmail. I study Statistics at Yıldız Technical University and spent the spring 2026 term at Gdańsk University of Technology through Erasmus+.",
+        "I try to take every chance to grow: in high school my friends and I founded a UAV team, at university I joined a club’s executive board and took part in sponsorship talks, and I spent a summer as a data analysis intern.",
+        "I work well in teams and I am open to learning. I am still a beginner with data analysis tools (R, SQL), and I would rather be upfront about that; I try to get one step better with every project.",
       ],
     },
     location: { tr: 'İstanbul, Türkiye', en: 'Istanbul, Türkiye' },
-    // CV PDF'leri hazır olunca geri eklenecek (düğme kendiliğinden görünür), örn:
+    // CV PDF’leri hazır olunca geri eklenecek (düğme kendiliğinden görünür), örn:
     // cvUrl: { tr: './cv-tr.pdf', en: './cv-en.pdf' },
     photo: './assets/ui/photo.webp', // gerçek fotoğraf (klasik görünüm)
     portrait: './assets/ui/portrait.webp', // pixel portre (oyun içi)
     highlights: [
       { tr: 'SGK Bursa İl Müdürlüğü’nde veri analizi stajı', en: 'Data analysis internship at the SGK Bursa Provincial Directorate' },
       { tr: 'İstanbul raylı sistemlerinin 2025 yolcu verisi üzerine açık kaynak analiz', en: 'Open-source analysis of Istanbul’s 2025 rail ridership data' },
-      { tr: 'Deptron ile ilk yılımızda TEKNOFEST finalinde derece', en: 'A placement in the TEKNOFEST finals with Deptron in our first year' },
+      { tr: 'Deptron ile ilk senemizde TEKNOFEST finalinde derece', en: 'Placed in the TEKNOFEST finals with Deptron in our first year' },
       { tr: 'Erasmus+ ile Gdańsk Teknik Üniversitesi’nde bir dönem', en: 'One term at Gdańsk University of Technology through Erasmus+' },
       { tr: 'MİNT Kulübü’nde sponsorluk koordinatörlüğü ve yönetim kurulu üyeliği', en: 'Sponsorship coordinator and executive board member at MİNT Club' },
       { tr: 'Sertifikalı İHA pilotu', en: 'Certified UAV pilot' },
     ],
     // Klasik görünümdeki "sayılarla" kutuları
     stats: [
-      { value: { tr: '1,06 milyar', en: '1.06 billion' }, label: { tr: 'raylı sistem geçişini analiz ettim', en: 'rail entries analysed' } },
+      { value: { tr: '1,06 milyar', en: '1.06 billion' }, label: { tr: 'raylı sistem girişini analiz ettim', en: 'rail entries analysed' } },
       { value: { tr: '1 yıl', en: '1 year' }, label: { tr: 'kulüpte sponsorluk koordinatörlüğü', en: 'as club sponsorship coordinator' } },
       { value: '2', label: { tr: 'TEKNOFEST takımı', en: 'TEKNOFEST teams' } },
       { value: { tr: '1 dönem', en: '1 term' }, label: { tr: 'Erasmus+ · Gdańsk', en: 'Erasmus+ · Gdańsk' } },
@@ -69,7 +69,7 @@ export default {
       title: { tr: 'Ders Asistanı', en: 'Study Assistant' },
       summary: {
         tr: 'Ders notlarını (PDF, fotoğraf, metin) yükleyince konu anlatımı çıkaran, soru soran, konu sonu testi ve bilgi kartları hazırlayan Android uygulaması. Günlük tekrar testleri, yanlışlar defteri, sınav geri sayımı ve çalışma serisi var. Sunucusu yok; tüm veri telefonda duruyor.',
-        en: 'An Android app that turns your lecture notes (PDF, photo, text) into explanations, questions, end-of-topic tests and flashcards. It has daily review tests, a mistakes notebook, an exam countdown and study streaks. There is no server; all data stays on the phone.',
+        en: 'An Android app that turns your lecture notes (PDF, photo, text) into explanations, questions, end-of-topic tests and flashcards. It has daily review tests, a mistake log, an exam countdown and study streaks. There is no server; all data stays on the phone.',
       },
       tags: ['React Native', 'Expo', 'TypeScript', 'SQLite'],
       cover: './assets/projects/ders-asistani.webp',
@@ -133,7 +133,7 @@ export default {
       title: { tr: 'Rota — Alışkanlık Takibi', en: 'Rota — Habit Tracker' },
       summary: {
         tr: 'Günlük ve haftalık alışkanlıkları takip eden Android uygulaması. Hedef belirli günlere ya da “haftada X kez” biçiminde kurulabiliyor; günde birden çok tekrar, seri takibi ve başarımlar var. Aylık ısı haritası, gün detayı ve analiz ekranları neyin işe yaradığını gösteriyor; haftalık değerlendirme ve alışkanlık önerileri Gemini ile geliyor. Hatırlatıcılar, ana ekran widget’ı ve veriyi dışa aktarıp geri yükleme de var.',
-        en: 'An Android app for tracking daily and weekly habits. A goal can be set for specific days or as “X times a week”, with several repetitions a day, streaks and achievements. A monthly heatmap, day detail and analytics screens show what is working; a weekly review and habit suggestions come from Gemini. It also has reminders, a home-screen widget and export/restore of your data.',
+        en: 'An Android app for tracking daily and weekly habits. A goal can be set for specific days or as “X times a week”, with several repetitions a day, streaks and achievements. A monthly heatmap, day detail and analytics screens show what is working; a weekly review and habit suggestions come from Gemini. It also has reminders, a home-screen widget and data export and restore.',
       },
       tags: ['Android', 'Kotlin', 'Jetpack Compose', 'Material 3', 'Room', 'Glance Widget', 'Gemini API'],
       cover: './assets/projects/rota.webp',
@@ -151,10 +151,10 @@ export default {
       date: '2025-09-01',
       title: { tr: 'Deptron — TEKNOFEST', en: 'Deptron — TEKNOFEST' },
       summary: {
-        tr: 'Deptron, Yıldız Teknik Üniversitesi’nde geliştirilen otonom bir depo robotu. Kuruluşunda yer aldığım takımla ilk senemizde TEKNOFEST finalinde derece elde ettik.',
-        en: 'Deptron is an autonomous warehouse robot developed at Yıldız Technical University. With a team I helped found, we earned a placement in the TEKNOFEST finals in our first year.',
+        tr: 'Deptron, Yıldız Teknik Üniversitesi’nde otonom depo robotu geliştiren takım. Kuruluşunda yer aldım; ilk senemizde TEKNOFEST finalinde derece elde ettik.',
+        en: 'Deptron is a team at Yıldız Technical University building an autonomous warehouse robot. I helped found it; we placed in the TEKNOFEST finals in our first year.',
       },
-      tags: ['TEKNOFEST', { tr: 'Organizasyon', en: 'Organisation' }, { tr: 'Takım', en: 'Team' }, { tr: 'Otonom robot', en: 'Autonomous robot' }],
+      tags: ['TEKNOFEST', { tr: 'Organizasyon', en: 'Organising' }, { tr: 'Takım', en: 'Team' }, { tr: 'Otonom robot', en: 'Autonomous robot' }],
       cover: './assets/projects/deptron.webp',
       coverCenter: true,
       links: {},
@@ -165,8 +165,8 @@ export default {
       date: '2023-08-01',
       title: { tr: 'İHA Takımı', en: 'UAV Team' },
       summary: {
-        tr: 'Lisede sınıf arkadaşlarımla kurduğumuz İHA takımıyla TEKNOFEST’e katılma hakkı kazandık. Takımda sertifikalı İHA pilotuydum. Takımda elektrik işlerinden de sorumluydum.',
-        en: 'In high school my classmates and I founded a UAV team and qualified to compete at TEKNOFEST. I was the team\'s certified UAV pilot. I was also responsible for the team’s electrical work.',
+        tr: "Lisede sınıf arkadaşlarımla kurduğumuz İHA takımıyla TEKNOFEST’e katılma hakkı kazandık. Takımın sertifikalı İHA pilotuydum; elektrik işlerinden de sorumluydum.",
+        en: "In high school my classmates and I founded a UAV team and qualified to compete at TEKNOFEST. I was the team’s certified UAV pilot and also handled its electrical work.",
       },
       tags: [{ tr: 'İHA', en: 'UAV' }, 'TEKNOFEST', { tr: 'Sponsorluk', en: 'Sponsorship' }],
       cover: './assets/projects/iha.webp',
@@ -179,17 +179,17 @@ export default {
     {
       group: { tr: 'Veri ve analiz', en: 'Data & analysis' },
       items: [
-        { name: 'Microsoft Excel', level: 4 },
         { name: 'Python', level: 3 },
-        { name: { tr: 'R (temel)', en: 'R (basic)' }, level: 1 },
-        { name: { tr: 'SQL (temel)', en: 'SQL (basic)' }, level: 1 },
-        { name: { tr: 'SPSS (temel)', en: 'SPSS (basic)' }, level: 1 },
+        { name: 'Microsoft Excel', level: 4 },
+        { name: 'R', level: 1 },
+        { name: 'SQL', level: 1 },
+        { name: 'SPSS', level: 1 },
       ],
     },
     {
       group: { tr: 'Araçlar', en: 'Tools' },
       items: [
-        { name: 'Microsoft Word & Office', level: 4 },
+        { name: 'Microsoft Office (Word, PowerPoint)', level: 4 },
         { name: { tr: 'Entegra (e-ticaret)', en: 'Entegra (e-commerce)' }, level: 3 },
       ],
     },
@@ -207,7 +207,7 @@ export default {
       items: [
         { name: { tr: 'Türkçe (ana dil)', en: 'Turkish (native)' }, level: 5 },
         { name: { tr: 'İngilizce (B2)', en: 'English (B2)' }, level: 4 },
-        { name: { tr: 'İspanyolca (A1 · öğreniyorum)', en: 'Spanish (A1 · learning)' }, level: 1 },
+        { name: { tr: 'İspanyolca (A1)', en: 'Spanish (A1)' }, level: 1 },
       ],
     },
   ],
@@ -244,7 +244,7 @@ export default {
     },
   ],
 
-  // Kulüp, takım ve gönüllülük (CV'deki "Aktiviteler ve Projeler")
+  // Kulüp, takım ve gönüllülük (CV’deki "Aktiviteler ve Projeler")
   activities: [
     {
       period: { tr: 'Eki 2024 – devam', en: 'Oct 2024 – present' },
@@ -269,18 +269,18 @@ export default {
         },
         {
           period: { tr: 'Eki 2024 – Mar 2025', en: 'Oct 2024 – Mar 2025' },
-          title: { tr: 'Sponsorluk Birimi', en: 'Sponsorship Unit' },
+          title: { tr: 'Sponsorluk Birimi', en: 'Sponsorship Team Member' },
         },
       ],
     },
     {
       period: { tr: 'Mar 2025 – Eyl 2025', en: 'Mar 2025 – Sep 2025' },
-      title: { tr: 'Organizasyon Ekip Üyesi', en: 'Organisation Team Member' },
+      title: { tr: 'Organizasyon Ekip Üyesi', en: 'Organising Team Member' },
       org: 'Deptron',
       logo: './assets/logos/deptron.png',
       note: {
         tr: 'Otonom depo robotu geliştiren takım. Takımın kuruluşunda yer aldım; ilk senemizde TEKNOFEST finalinde derece elde ettik.',
-        en: 'A team building an autonomous warehouse robot. Helped found the team; we earned a placement in the TEKNOFEST finals in our first year.',
+        en: 'A team building an autonomous warehouse robot. Helped found the team; we placed in the TEKNOFEST finals in our first year.',
       },
     },
     {
@@ -290,7 +290,7 @@ export default {
       logo: './assets/logos/aitt.png',
       note: {
         tr: 'Sınıf arkadaşlarımla kurduğumuz takımla TEKNOFEST’e katılma hakkı kazandık. Takımda elektrik işlerinden de sorumluydum.',
-        en: 'Qualified for TEKNOFEST with a team founded with classmates. I was also responsible for the team’s electrical work.',
+        en: 'Qualified for TEKNOFEST with a team founded with classmates. I also handled its electrical work.',
       },
     },
     {
@@ -322,7 +322,7 @@ export default {
       logo: './assets/logos/gdansk.png',
       note: {
         tr: 'Farklı kültürlerle çalışma ve iletişim becerilerimi geliştirdiğim bir dönem.',
-        en: 'A term that sharpened my cross-cultural teamwork and communication.',
+        en: 'A term in which I improved at working and communicating across cultures.',
       },
     },
   ],
@@ -330,7 +330,7 @@ export default {
   certificates: [
     { tr: 'Entegra Kullanım Sertifikası', en: 'Entegra User Certificate' },
     { tr: 'Garanti BBVA Genç Yeni Nesil Kariyer Okulu – Teknoloji Serisi', en: 'Garanti BBVA Young New Generation Career School – Technology Series' },
-    { tr: 'Sertifikalı İHA pilotu', en: 'Certified UAV pilot' },
+    { tr: 'İHA Pilotu Sertifikası', en: 'UAV Pilot Certificate' },
   ],
 
   contact: {
@@ -348,7 +348,7 @@ export default {
   hometown: {
     title: { tr: 'Memleketim Bursa', en: 'My hometown, Bursa' },
     text: {
-      tr: "Uludağ'ın eteklerinde, yeşiliyle ünlü şehir. Buradan bakınca aklım hep orada.",
+      tr: "Uludağ’ın eteklerinde, yeşiliyle ünlü şehir. Buradan bakınca aklım hep orada.",
       en: 'The green city at the foot of Mount Uludağ. Looking out from here, my mind is always there.',
     },
   },
@@ -361,3 +361,4 @@ export default {
     },
   },
 };
+

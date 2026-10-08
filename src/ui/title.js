@@ -12,7 +12,7 @@ const FADE_MS = 400;
 
 // Açılış ekranı. Kilit için 'classic' anahtarı kullanılır (lock.js'e yeni anahtar eklenmedi).
 // ready: oyun hazır olunca çözülen söz (verilmezse hemen hazır sayılır); onProgress(fn): fn(0..1) ile yükleme oranı.
-export function initTitle({ isClassic, openClassic, ready, onProgress } = {}) {
+export function initTitle({ isClassic, openClassic, ready, onProgress, onStart } = {}) {
   const root = document.getElementById('ui');
   if (!root) return;
   let wantsClassic = false;
@@ -41,13 +41,8 @@ export function initTitle({ isClassic, openClassic, ready, onProgress } = {}) {
   const card = el(
     'div',
     { class: 'title-card' },
-    greet,
-    nameEl,
-    jobEl,
-    tagEl,
-    startBtn,
-    el('div', { class: 'title-sub' }, classicBtn, langBtn),
-    tip,
+    el('div', { class: 'title-main' }, greet, nameEl, jobEl, tagEl),
+    el('div', { class: 'title-actions' }, startBtn, el('div', { class: 'title-sub' }, classicBtn, langBtn), tip),
   );
   const screen = el(
     'div',
@@ -112,6 +107,7 @@ export function initTitle({ isClassic, openClassic, ready, onProgress } = {}) {
     ambience(true);
     sfx('open');
     dismiss(true);
+    if (onStart) onStart();
   }
 
   function goClassic() {

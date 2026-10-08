@@ -18,7 +18,7 @@ const T = {
   prev: { tr: 'Önceki sayfa', en: 'Previous page' },
   next: { tr: 'Sonraki sayfa', en: 'Next page' },
   page: { tr: 'Sayfa', en: 'Page' },
-  loading: { tr: 'Defter açılıyor…', en: 'Opening the book…' },
+  loading: { tr: 'Defter açılıyor…', en: 'Opening the guestbook…' },
   emptyTitle: { tr: 'İlk yazan sen ol', en: 'Be the first to write' },
   emptyText: {
     tr: 'Bu sayfalar henüz boş. Bir selam bırak, defterin ilk satırı senin olsun.',
@@ -27,7 +27,7 @@ const T = {
   formTitle: { tr: 'Bir not bırak', en: 'Leave a note' },
   name: { tr: 'Adın', en: 'Your name' },
   message: { tr: 'Mesajın', en: 'Your message' },
-  submit: { tr: 'Deftere yaz', en: 'Sign the book' },
+  submit: { tr: 'Deftere yaz', en: 'Sign the guestbook' },
   sending: { tr: 'Yazılıyor…', en: 'Writing…' },
   toWrite: { tr: 'Yaz', en: 'Write' },
   toRead: { tr: 'Oku', en: 'Read' },
@@ -37,7 +37,7 @@ const T = {
   invalid: { tr: 'Ad ve en az 3 karakterlik bir mesaj yaz', en: 'Enter a name and a message of at least 3 characters' },
   link: { tr: 'Bağlantı içeren mesajlar kabul edilmiyor', en: 'Messages containing links are not accepted' },
   rate: { tr: 'Biraz bekleyip tekrar dene', en: 'Wait a bit and try again' },
-  offline: { tr: 'Defter şu an çevrimdışı; daha sonra tekrar dene', en: 'The book is offline right now; try again later' },
+  offline: { tr: 'Defter şu an çevrimdışı; daha sonra tekrar dene', en: 'The guestbook is offline right now; try again later' },
 };
 
 let uid = 0;
@@ -293,7 +293,7 @@ export function initGuestbook() {
     renderList();
   }
 
-  // Sayfa çevirme: kısa animasyon (reduced-motion'da yok) + blip
+  // Sayfa çevirme: kısa animasyon (reduced-motion’da yok) + blip
   function turn(dir) {
     const next = page + dir;
     if (!entries || next < 0 || next >= pages()) return;
@@ -346,6 +346,52 @@ export function initGuestbook() {
     if (!wrap.contains(event.target)) close();
   });
 
+  // Ekran klavyesi: görünür alan (visualViewport) küçülünce katman ona uyar, odaktaki alan/gönder düğmesi kaydırılır.
+  // visualViewport yoksa ya da klavye açık değilse hiçbir şey yazılmaz (eski davranış).
+  const vv = window.visualViewport || null;
+  let vvTimer = null;
+  function syncViewport() {
+    if (!isOpen || !vv) return;
+    const shrunk = window.innerHeight - vv.height > 80;
+    if (shrunk) {
+      layer.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
+      layer.style.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`);
+    } else {
+      layer.style.removeProperty('--vvh');
+      layer.style.removeProperty('--vvt');
+    }
+    if (shrunk) revealFocused();
+  }
+  function revealFocused() {
+    clearTimeout(vvTimer);
+    vvTimer = setTimeout(() => {
+      const active = document.activeElement;
+      if (!isOpen || !(active instanceof HTMLElement) || !form.node.contains(active)) return;
+      active.scrollIntoView({ block: 'nearest' });
+      const submit = form.node.querySelector('button[type="submit"]');
+      if (submit && active.tagName === 'TEXTAREA') submit.scrollIntoView({ block: 'nearest' });
+    }, 250);
+  }
+  function watchViewport() {
+    if (!vv) return;
+    vv.addEventListener('resize', syncViewport);
+    vv.addEventListener('scroll', syncViewport);
+    syncViewport();
+  }
+  function unwatchViewport() {
+    clearTimeout(vvTimer);
+    layer.style.removeProperty('--vvh');
+    layer.style.removeProperty('--vvt');
+    if (!vv) return;
+    vv.removeEventListener('resize', syncViewport);
+    vv.removeEventListener('scroll', syncViewport);
+  }
+  layer.addEventListener('focusin', (event) => {
+    // Yalnızca dokunmatikte (ekran klavyesi olabilir); masaüstünde odak davranışı değişmez
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (coarse && event.target instanceof HTMLElement && form.node.contains(event.target)) revealFocused();
+  });
+
   function open() {
     if (isOpen) return;
     isOpen = true;
@@ -357,6 +403,7 @@ export function initGuestbook() {
     renderText();
     layer.hidden = false;
     setLock('overlay', true);
+    watchViewport();
     form.focus();
     if (!found) {
       found = true;
@@ -374,6 +421,7 @@ export function initGuestbook() {
     if (!isOpen) return;
     isOpen = false;
     token += 1;
+    unwatchViewport();
     layer.hidden = true;
     setLock('overlay', false);
     if (lastFocus instanceof HTMLElement && lastFocus !== document.body && lastFocus.isConnected) {
@@ -479,3 +527,4 @@ export function mountGuestbookSection(container) {
     form.dispose();
   };
 }
+

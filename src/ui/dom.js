@@ -6,6 +6,7 @@ export function el(tag, attrs, ...children) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
     else if (key === 'text') node.textContent = String(value);
+    else if (key === 'style') node.style.cssText = String(value); // CSSOM: style özniteliği CSP'sine takılmaz
     else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (/^on/i.test(key)) continue; // dizgi değerli olay öznitelikleri yazılmaz

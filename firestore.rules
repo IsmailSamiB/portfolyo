@@ -5,11 +5,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Tek yönetici. Adres src/data/config.js içindeki ADMIN_EMAIL ile aynı olmalı.
+    // Tek yönetici. Kimlik src/data/config.js içindeki ADMIN_UID ile aynı olmalı.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == 'basaraner1629@gmail.com'
-        && request.auth.token.email_verified == true
+        && request.auth.uid == '6MIyPfqOOvNJqV3J6fUGdMl3rFI2'
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
