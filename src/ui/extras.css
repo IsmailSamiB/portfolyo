@@ -7,7 +7,7 @@
   z-index: 100;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l));
   overflow: hidden;
   background: var(--bg);
   transition: opacity 0.4s steps(6);
@@ -118,17 +118,31 @@
 .title-link:hover {
   color: var(--orange-dark);
 }
-/* Dokunma hedefi: 28 → 40px (görünmez genişletme) */
+/* Dokunma hedefi: 28 → 44px (görünmez genişletme) */
 .title-link::after {
   content: '';
   position: absolute;
-  inset: -6px -4px;
+  inset: -8px -4px;
+}
+/* "Oda yüklenemedi" satırı */
+.title-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-md);
+  line-height: 1.25;
+}
+.title-error[hidden] {
+  display: none;
 }
 .title-tip {
   margin: 0;
-  color: var(--wood);
+  color: var(--wood-text);
   font-size: var(--fs-md);
   line-height: 1.25;
+}
+/* Ardışık iki ipucu satırı tek blok gibi dursun (kap boşluğu 14px) */
+.title-tip + .title-tip {
+  margin-top: -8px;
 }
 @keyframes title-pulse {
   50% {
@@ -138,7 +152,7 @@
 /* Kısa ekran (yatay telefon): kart sıkılaşır, geniş ekranda iki sütuna ayrılır; kaydırma gerekmez */
 @media (max-height: 420px) {
   .title-screen {
-    padding: 8px;
+    padding: max(8px, var(--safe-t)) max(8px, var(--safe-r)) max(8px, var(--safe-b)) max(8px, var(--safe-l));
   }
   .title-card {
     gap: 8px;
@@ -156,7 +170,7 @@
     font-size: var(--fs-md);
   }
   .title-name {
-    font-size: 38px;
+    font-size: 2.375rem;
   }
   .title-job,
   .title-tag {
@@ -172,7 +186,13 @@
   .title-sub {
     gap: 6px 12px;
   }
-  .title-tip {
+  .title-tip + .title-tip {
+    margin-top: -3px;
+  }
+  .title-tip,
+  .title-error {
+    /* 18px yalnız Jersey 15 ile okunur (20px kısa ekranda kartı taşırır) */
+    font-family: var(--font-data);
     font-size: var(--fs-sm);
     line-height: 1.2;
   }
@@ -197,7 +217,7 @@
   z-index: 30;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l));
   overflow: auto;
   background: rgba(24, 14, 28, 0.78);
 }
@@ -217,7 +237,7 @@
   right: -6px;
   z-index: 5;
   min-width: 34px;
-  height: 34px;
+  min-height: 34px;
 }
 /* Pencere: dış pervaz, iki kanat çıtası, yan perdeler */
 .view-window {
@@ -509,7 +529,7 @@
 }
 .secret-toast.is-special {
   background: var(--green);
-  color: #fff;
+  color: var(--on-green);
   border-color: var(--green-dark);
 }
 .secret-toast[hidden] {

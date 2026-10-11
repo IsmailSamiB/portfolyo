@@ -5,12 +5,16 @@ import content from '../content/content.js';
 import { unlock, isMuted, setMuted, sfx, ambience } from '../audio.js';
 import S from './strings.js';
 import { el, safeUrl, blurIfPointer } from './dom.js';
+import { track } from '../data/store.js';
 
 const KEY_SEEN = 'portfolio:explored';
 const KEY_SECRETS = 'portfolio:secrets';
-const SECRET_TOAST_MS = 2500;
+const SECRET_TOAST_MS = 6000;
 const KEY_DONE = 'portfolio:explored-done';
-const HINT_MS = 8000;
+const KEY_CV_HINT = 'portfolio:cv-hint';
+const CV_HINT_DELAY = 900; // ipucu okunabilsin diye yazdırma penceresi bu kadar geç açılır (yalnızca ilk kullanım)
+const CV_HINT_MS = 6000;
+const HINT_MAX_MS = 20000; // ipucu oyuncu hiçbir şey yapmasa da bu kadar sonra kapanır
 const TOAST_MS = 10000;
 const MOVE_KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
 
@@ -53,6 +57,23 @@ function loadDone() {
     return localStorage.getItem(KEY_DONE) === '1';
   } catch {
     return false;
+  }
+}
+
+// "CV indir" ipucu (yazdırma penceresinde "PDF olarak kaydet") yalnızca ilk kullanımda gösterilir.
+function loadCvHint() {
+  try {
+    return localStorage.getItem(KEY_CV_HINT) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveCvHint() {
+  try {
+    localStorage.setItem(KEY_CV_HINT, '1');
+  } catch {
+    // önemsiz: ipucu bu oturumda her tıklamada görünür
   }
 }
 
@@ -102,7 +123,7 @@ function hudButton(icon, onClick, extraClass) {
   };
 }
 
-export function createHud(root, { onToggleClassic }) {
+export function createHud(root, { onToggleClassic, onPrintCv }) {
   let tourActive = false;
   let classic = false;
   let done = loadDone();
@@ -167,21 +188,41 @@ export function createHud(root, { onToggleClassic }) {
   // Dar ekranda yalnız simge
   const narrowMq = window.matchMedia ? window.matchMedia('(max-width: 480px)') : null;
   const classicBtn = hudButton('≡', () => onToggleClassic(), 'hud-classic');
-  const cvLabel = el('span', { class: 'hud-btn-label' });
-  const cvBtn = el(
-    'a',
-    {
-      class: 'px-btn hud-btn hud-cv',
-      href: safeUrl(pick(content.profile && content.profile.cvUrl)),
-      download: true,
-    },
-    el('span', { class: 'hud-btn-icon', 'aria-hidden': 'true', text: '↓' }),
-    cvLabel,
-  );
-  // CV düğmesi yalnızca profile.cvUrl tanımlıysa çizilir (yoksa DOM'a hiç eklenmez)
+  // CV düğmesi: profile.cvUrl tanımlıysa o dosyayı indirir (bağlantı); değilse klasik görünümü yazdırır
+  // (tarayıcının yazdırma penceresi açılır, kullanıcı "PDF olarak kaydet"i seçer).
   const hasCv = Boolean(content.profile && content.profile.cvUrl);
-  const actions = el('nav', { class: 'hud-actions' }, soundBtn.node, langBtn, tourBtn.node, classicBtn.node);
-  if (hasCv) actions.append(cvBtn);
+  let cvLabel;
+  let cvBtn;
+  if (hasCv) {
+    cvLabel = el('span', { class: 'hud-btn-label' });
+    cvBtn = el(
+      'a',
+      {
+        class: 'px-btn hud-btn hud-cv',
+        href: safeUrl(pick(content.profile.cvUrl)),
+        download: true,
+      },
+      el('span', { class: 'hud-btn-icon', 'aria-hidden': 'true', text: '↓' }),
+      cvLabel,
+    );
+  } else {
+    const printBtn = hudButton(
+      '↓',
+      () => {
+        // İlk kullanımda kısa ipucu gösterilir; yazdırma, okunabilmesi için biraz gecikir.
+        const first = !loadCvHint();
+        if (typeof onPrintCv !== 'function' || !onPrintCv({ delay: first ? CV_HINT_DELAY : 0 })) return;
+        track('cv', {});
+        if (!first) return;
+        saveCvHint();
+        showSecretToast(pick(S.hud.cvHint), false, CV_HINT_MS);
+      },
+      'hud-cv',
+    );
+    cvBtn = printBtn.node;
+    cvLabel = cvBtn.querySelector('.hud-btn-label');
+  }
+  const actions = el('nav', { class: 'hud-actions' }, soundBtn.node, langBtn, tourBtn.node, classicBtn.node, cvBtn);
   const top = el('div', { class: 'hud-top' }, quest, actions);
 
   // --- Kontrol ipucu ---
@@ -229,8 +270,15 @@ export function createHud(root, { onToggleClassic }) {
     const current = lang();
     langTr.classList.toggle('is-active', current === 'tr');
     langEn.classList.toggle('is-active', current === 'en');
+    // Etkin dil ekran okuyucuya da bildirilir
+    for (const [node, code] of [[langTr, 'tr'], [langEn, 'en']]) {
+      if (current === code) node.setAttribute('aria-current', 'true');
+      else node.removeAttribute('aria-current');
+    }
     langBtn.setAttribute('aria-label', pick(S.hud.lang));
     langBtn.title = pick(S.hud.lang);
+    actions.setAttribute('aria-label', pick(S.hud.actionsLabel));
+    quest.setAttribute('aria-label', pick(S.hud.questLabel));
 
     tourBtn.set(pick(tourActive ? S.hud.tourStop : S.hud.tourStart), tourActive ? '■' : '▶');
     tourBtn.node.classList.toggle('is-active', tourActive);
@@ -239,12 +287,15 @@ export function createHud(root, { onToggleClassic }) {
     classicBtn.node.setAttribute('aria-label', classicText);
     classicBtn.node.title = classicText;
     cvLabel.textContent = pick(S.hud.cv);
+    if (!hasCv) cvBtn.title = pick(S.hud.cvHint);
 
     const muted = isMuted();
-    soundBtn.set(pick(muted ? S.hud.soundOff : S.hud.soundOn), muted ? '×' : '♪');
-    soundBtn.node.setAttribute('aria-label', pick(S.hud.soundLabel));
-    soundBtn.node.title = pick(S.hud.soundLabel);
-    soundBtn.node.setAttribute('aria-pressed', String(!muted));
+    const soundText = pick(muted ? S.hud.soundOff : S.hud.soundOn);
+    soundBtn.set(soundText, muted ? '×' : '♪');
+    // Erişilebilir ad = görünür durum metni (dar ekranda etiket gizlense de ad değişmez)
+    soundBtn.node.setAttribute('aria-label', soundText);
+    soundBtn.node.title = soundText;
+    soundBtn.node.removeAttribute('aria-pressed');
     secretsLine.textContent = `${pick(S.hud.secrets)} ${secrets.size}/${SECRETS.length}`;
 
     hint.textContent = pick(isTouch() ? S.hud.hintTouch : S.hud.hintKeys);
@@ -266,7 +317,7 @@ export function createHud(root, { onToggleClassic }) {
     toast.hidden = true;
   }
 
-  function showSecretToast(text, special) {
+  function showSecretToast(text, special, ms = SECRET_TOAST_MS) {
     secretToast.textContent = text;
     secretToast.classList.toggle('is-special', Boolean(special));
     secretToast.hidden = false;
@@ -277,7 +328,7 @@ export function createHud(root, { onToggleClassic }) {
     clearTimeout(secretTimer);
     secretTimer = setTimeout(() => {
       secretToast.hidden = true;
-    }, SECRET_TOAST_MS);
+    }, ms);
   }
 
   function foundSecret(id) {
@@ -305,23 +356,36 @@ export function createHud(root, { onToggleClassic }) {
     render();
   }
 
-  // İpucu: ilk hareket ya da süre dolunca kaybolur.
+  // İpucu: oyun gerçekten göründüğünde başlar; oyuncunun ilk hareketi ya da ilk etkileşimiyle kapanır
+  // (yedek: HINT_MAX_MS sonra).
   let hintTimer = null;
+  let hintStarted = false;
+  let offInteract = [];
+  hint.hidden = true;
   function dismissHint() {
     clearTimeout(hintTimer);
     hint.hidden = true;
     window.removeEventListener('keydown', onMoveKey);
     window.removeEventListener('pointerdown', onGamePointer);
+    offInteract.forEach((off) => off());
+    offInteract = [];
   }
   function onMoveKey(event) {
-    if (MOVE_KEYS.includes(String(event.key).toLowerCase())) dismissHint();
+    const key = String(event.key).toLowerCase();
+    if (MOVE_KEYS.includes(key)) dismissHint(); // E giriş diyaloğunu da ilerletir; inceleme "interact" olayıyla yakalanır
   }
   function onGamePointer(event) {
     if (event.target instanceof Element && event.target.closest('#game')) dismissHint();
   }
-  window.addEventListener('keydown', onMoveKey);
-  window.addEventListener('pointerdown', onGamePointer);
-  hintTimer = setTimeout(dismissHint, HINT_MS);
+  function startHint() {
+    if (hintStarted) return;
+    hintStarted = true;
+    hint.hidden = false;
+    window.addEventListener('keydown', onMoveKey);
+    window.addEventListener('pointerdown', onGamePointer);
+    offInteract = [on('interact', dismissHint), on('panel:open', dismissHint)];
+    hintTimer = setTimeout(dismissHint, HINT_MAX_MS);
+  }
 
   on('panel:open', (detail) => {
     sfx('open');
@@ -338,7 +402,10 @@ export function createHud(root, { onToggleClassic }) {
     tourActive = Boolean(detail && detail.active);
     render();
   });
-  on('overlay:open', () => sfx('open'));
+  on('overlay:open', () => {
+    sfx('open');
+    hideToast(); // başarım bildirimi ek panelin (piyano, defter…) başlığını ve kapat düğmesini örtmesin
+  });
   on('overlay:closed', () => sfx('close'));
   // Diyalog satırı ilerlemesi köprüde yok; yalnızca diyalog açılışında blip çalar.
   on('dialog:show', () => sfx('blip'));
@@ -350,13 +417,16 @@ export function createHud(root, { onToggleClassic }) {
 
   return {
     isTourActive: () => tourActive,
+    // Kısa bildirim (sır bildirimiyle aynı kutu)
+    notify: (text) => showSecretToast(text, false),
     markGameShown() {
       gameShown = true;
+      startHint();
       render();
     },
+    // Odaya dönüşte ipucu ve "Odaya dön" etiketi burada başlamaz: oda gerçekten göründüğünde index.js markGameShown() çağırır.
     setClassic(active) {
       classic = Boolean(active);
-      if (!classic) gameShown = true;
       if (classic) hideToast();
       render();
     },

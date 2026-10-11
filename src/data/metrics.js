@@ -55,6 +55,15 @@ export function initMetrics() {
   on('tour:state', ({ active } = {}) => track('tour', { active: Boolean(active) }));
   on('lang:changed', ({ lang } = {}) => track('lang', { lang: String(lang ?? '') }));
 
+  // Proje açılışı: bir oturumda aynı proje bir kez sayılır (kart genişletme, galeri, oyun içi pencere)
+  const projects = new Set();
+  on('project:open', ({ id } = {}) => {
+    const key = String(id ?? '').slice(0, 80);
+    if (!key || projects.has(key)) return;
+    projects.add(key);
+    track('project', { id: key });
+  });
+
   const secrets = new Set();
   on('secret:found', ({ id } = {}) => {
     const key = String(id ?? '');

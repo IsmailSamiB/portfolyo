@@ -51,19 +51,24 @@
   --bg-light: #45344a;
   --ink: #3a2418;
   --focus: #ffd23f;
+  /* Hata metni; ikincil metin (çizgi ve çerçevede --wood kalır); yeşil zemin üstündeki metin */
+  --danger: #a3261c;
+  --wood-text: #7a4a2e;
+  --on-green: var(--ink);
   --shadow: rgba(0, 0, 0, 0.5);
   /* Tipografi: tek pixel aile. Jersey 15 başlık + veri, Jersey 10 gövde (ikisi de tek kalınlık) */
   --font-head: 'Jersey 15', 'Jersey 10', ui-monospace, 'Courier New', monospace;
   --font-body: 'Jersey 10', 'Jersey 15', ui-monospace, 'Courier New', monospace;
   --font-data: 'Jersey 15', 'Jersey 10', ui-monospace, 'Courier New', monospace;
   /* Punto ölçeği. xs ve sm yalnız Jersey 15 ile; Jersey 10 en az md */
-  --fs-xs: 15px;
-  --fs-sm: 18px;
-  --fs-md: 20px;
-  --fs-lg: 25px;
-  --fs-xl: 30px;
-  --fs-2xl: 38px;
-  --fs-3xl: 45px;
+  /* rem: tarayıcının yazı boyutu ayarıyla birlikte büyür (16px kökte 15/18/20/25/30/38/45px) */
+  --fs-xs: 0.9375rem;
+  --fs-sm: 1.125rem;
+  --fs-md: 1.25rem;
+  --fs-lg: 1.5625rem;
+  --fs-xl: 1.875rem;
+  --fs-2xl: 2.375rem;
+  --fs-3xl: 2.8125rem;
   --lh-body: 1.4;
   --lh-ui: 1.2;
   --lh-head: 1.12;
@@ -146,6 +151,14 @@ img {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Krem yüzeyde sarı halka görünmez (1,15:1): koyu turuncu (4,8:1). Koyu zeminlerde sarı kalır */
+.hud-quest :focus-visible,
+.toast :focus-visible,
+.title-card :focus-visible,
+.gb-page :focus-visible {
+  outline-color: var(--orange-dark);
 }
 
 /* ---------- Oyun tuvali ---------- */
@@ -282,21 +295,22 @@ body.is-classic #game {
     1px 1px 0 var(--shadow);
 }
 
+/* Metin taşıyan turuncu zemin koyu turuncudur (krem metinle 5,6:1); iç gölge bir ton daha koyu */
 .px-btn--accent {
-  background: var(--orange);
+  background: var(--orange-dark);
   color: #fff6e0;
   box-shadow:
-    inset -3px -3px 0 var(--orange-dark),
+    inset -3px -3px 0 #7a2c0e,
     3px 3px 0 var(--shadow);
 }
 
 .px-btn--accent:hover {
-  background: #e8763f;
+  background: #b94d21;
 }
 
 .px-btn--accent:active {
   box-shadow:
-    inset 3px 3px 0 var(--orange-dark),
+    inset 3px 3px 0 #7a2c0e,
     1px 1px 0 var(--shadow);
 }
 
@@ -313,25 +327,25 @@ body.is-classic #game {
 .bar-btn {
   flex: none;
   min-width: 32px;
-  height: 32px;
+  min-height: 32px; /* sabit yükseklik değil: metin büyürse kırpılmaz */
   margin: 0;
   padding: 0 8px;
   border: 3px solid var(--wood-dark);
   border-radius: 0;
-  background: var(--orange);
+  background: var(--orange-dark);
   color: #fff6e0;
   font-family: var(--font-head);
   font-size: var(--fs-sm);
   line-height: 1;
   cursor: pointer;
-  box-shadow: inset -2px -2px 0 var(--orange-dark);
+  box-shadow: inset -2px -2px 0 #7a2c0e;
 }
 
 .bar-btn:hover {
-  background: #e8763f;
+  background: #b94d21;
 }
 
-/* Dokunma hedefi: görünüm aynı kalır, tıklanabilir alan görünmez biçimde en az 40px'e genişler.
+/* Dokunma hedefi: görünüm aynı kalır, tıklanabilir alan görünmez biçimde en az 44px'e genişler.
    (.toast-close, .mg-close, .view-close zaten position: absolute) */
 .bar-btn:not(.toast-close, .mg-close, .view-close),
 .hud-btn,
@@ -344,16 +358,34 @@ body.is-classic #game {
 .quest-cta::after {
   content: '';
   position: absolute;
-  /* inset iç kenara (padding box) göredir: 3px çerçeve + 4px taşma */
+  /* inset iç kenara (padding box) göredir: 3px çerçeve + 4px taşma. HUD düğmesi zaten 42px yüksek;
+     aralarındaki 8px boşlukta alanlar üst üste binmesin diye taşma 4px kalır */
   inset: -7px;
 }
 
-.quest-cta::after {
-  inset: -7px -3px;
+/* 32px kare düğme: dikeyde 44px. Yatayda komşu düğmeyle (8px boşluk) çakışmasın diye 4px taşar;
+   çubuğun son düğmesi (kapat) boş kenara doğru 8px taşar ve 44px olur */
+.bar-btn::after {
+  inset: -9px -7px;
 }
 
-.toast-close::after {
-  inset: -10px;
+.bar-btn:last-child::after {
+  inset: -9px -11px -9px -7px;
+}
+
+/* Tek başına duran köşe düğmeleri: her yöne 6px */
+.bar-btn.mg-close::after,
+.bar-btn.view-close::after {
+  inset: -9px;
+}
+
+.quest-cta::after {
+  inset: -9px -3px;
+}
+
+/* 26px düğme: 20 + 24 = 44px */
+.bar-btn.toast-close::after {
+  inset: -12px;
 }
 
 .bar-btn--text {
@@ -388,7 +420,9 @@ body.is-classic #game {
 
 .hud-quest {
   flex: none;
-  width: 236px;
+  width: 14.75rem; /* 236px; yazı büyürse kutu da genişler */
+  min-width: 236px;
+  max-width: 100%;
   padding: 10px 12px 12px;
   border: 3px solid var(--wood-dark);
   background: var(--cream);
@@ -460,14 +494,19 @@ body.is-classic #game {
   opacity: 0.7;
 }
 
-.lang-opt.is-active {
+/* Etkin dil yalnız renkle ayrılmasın: 2px alt çizgi */
+.lang-opt.is-active,
+.lang-opt[aria-current='true'] {
   opacity: 1;
   color: var(--orange-dark);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .hud-tour.is-active {
   background: var(--green);
-  color: #fff6e0;
+  color: var(--on-green);
   box-shadow:
     inset -3px -3px 0 var(--green-dark),
     3px 3px 0 var(--shadow);
@@ -528,7 +567,7 @@ body.is-classic .hud-top {
 
 .toast-star {
   color: var(--orange);
-  font-size: 40px;
+  font-size: 2.5rem;
   line-height: 0.8;
 }
 
@@ -548,7 +587,7 @@ body.is-classic .hud-top {
   top: 6px;
   right: 6px;
   min-width: 26px;
-  height: 26px;
+  min-height: 26px;
   padding: 0;
   font-size: var(--fs-xs);
 }
@@ -572,7 +611,7 @@ body.is-classic .hud-top {
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l));
   background: rgba(24, 14, 28, 0.72);
 }
 
@@ -637,13 +676,24 @@ body.is-classic .hud-top {
 }
 
 .panel-body:focus-visible {
-  outline: 3px solid var(--orange);
+  outline: 3px solid var(--orange-dark);
   outline-offset: -3px;
 }
 
 .panel :focus-visible,
 #classic :focus-visible {
-  outline-color: var(--orange);
+  outline-color: var(--orange-dark);
+}
+
+/* Ahşap başlık çubuğu ve yeşil masaüstü koyu zemindir: sarı halka (4,0:1 / 4,1:1) */
+.panel-bar .bar-btn:focus-visible,
+.panel .os-icon:focus-visible {
+  outline-color: var(--focus);
+}
+
+/* Turuncu pencere çubuğunda sarı da turuncu da kaybolur: koyu zemin rengi (4,2:1) */
+.os-win-bar .bar-btn:focus-visible {
+  outline-color: var(--bg);
 }
 
 .panel-body a:not(.px-btn),
@@ -746,7 +796,7 @@ body.is-classic .hud-top {
 }
 
 .timeline-org {
-  color: var(--wood);
+  color: var(--wood-text);
   line-height: var(--lh-ui);
 }
 
@@ -836,7 +886,7 @@ body.is-classic .hud-top {
 
 .findings-title {
   margin: 0 0 4px;
-  color: var(--orange-dark);
+  color: var(--wood-dark);
   font-family: var(--font-head);
   font-size: var(--fs-md);
   font-weight: 400;
@@ -909,14 +959,14 @@ body.is-classic .hud-top {
 }
 
 .about-title {
-  color: var(--orange-dark);
+  color: var(--wood-dark);
   font-family: var(--font-head);
   font-size: var(--fs-lg);
   line-height: var(--lh-head);
 }
 
 .about-location {
-  color: var(--wood);
+  color: var(--wood-text);
   font-size: var(--fs-md);
 }
 
@@ -959,9 +1009,10 @@ body.is-classic .hud-top {
   background: var(--cream-dark);
 }
 
+/* Dolu kutu koyu yeşil: boş kutuya (#e0c996) karşı 3,7:1 */
 .lvl-b.is-on {
-  background: var(--green);
-  box-shadow: inset -2px -2px 0 var(--green-dark);
+  background: var(--green-dark);
+  box-shadow: inset -2px -2px 0 var(--green);
 }
 
 /* İletişim */
@@ -983,7 +1034,7 @@ body.is-classic .hud-top {
   min-width: 0;
   padding-block: 6px; /* dokunma hedefi: 29 → 41px */
   font-family: var(--font-data);
-  font-size: clamp(22px, 6.4vw, var(--fs-xl));
+  font-size: clamp(1.375rem, 6.4vw, var(--fs-xl));
   font-weight: 400;
   line-height: var(--lh-ui);
   letter-spacing: var(--ls-data);
@@ -1111,7 +1162,6 @@ body.is-classic .hud-top {
   margin: 0;
   color: var(--cream);
   font-size: var(--fs-md);
-  opacity: 0.85;
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
 }
 
@@ -1212,7 +1262,7 @@ body.is-classic .hud-top {
   padding: 5px 8px;
   border: 3px solid var(--wood-dark);
   background: var(--green);
-  color: #fff6e0;
+  color: var(--on-green);
   font-family: var(--font-head);
   font-size: var(--fs-sm);
   line-height: 1.1;
@@ -1263,7 +1313,7 @@ body.is-classic .hud-top {
   top: -26px;
   padding: 4px 10px 5px;
   border: 4px solid var(--wood-dark);
-  background: var(--orange);
+  background: var(--orange-dark);
   color: #fff6e0;
   font-family: var(--font-head);
   font-size: var(--fs-md);
@@ -1286,7 +1336,7 @@ body.is-classic .hud-top {
   position: absolute;
   right: 14px;
   bottom: 6px;
-  color: var(--orange);
+  color: var(--orange-dark);
   font-size: var(--fs-md);
   line-height: 1;
   animation: dialog-bob 0.8s steps(2) infinite;
@@ -1321,7 +1371,7 @@ body.is-classic .hud-top {
   }
 
   .hud-btn {
-    min-width: 40px; /* yalnızca simge kalan ses düğmesi (32px) parmakla basılabilsin */
+    min-width: 44px; /* yalnızca simge kalan ses düğmesi (32px) parmakla basılabilsin */
     padding: 4px 8px 5px;
     font-size: var(--fs-sm);
     gap: 6px;
@@ -1340,6 +1390,7 @@ body.is-classic .hud-top {
     align-items: center;
     gap: 6px 10px;
     width: auto;
+    min-width: 0;
     max-width: 100%;
     padding: 6px 8px;
   }
@@ -1384,7 +1435,7 @@ body.is-classic .hud-top {
   .panel-layer {
     /* Satır "auto" kalırsa içerik kadar uzar ve panel ekrandan taşar: satırı katmana sabitle */
     grid-template: minmax(0, 1fr) / minmax(0, 1fr);
-    padding: 6px;
+    padding: 6px max(6px, var(--safe-r)) 6px max(6px, var(--safe-l));
     padding-top: calc(6px + var(--safe-t));
     padding-bottom: calc(6px + var(--safe-b));
   }
@@ -1476,6 +1527,7 @@ body.is-classic .hud-top {
     align-items: center;
     gap: 8px;
     width: auto;
+    min-width: 0;
     max-width: none;
     padding: 3px 8px 4px;
     border-width: 2px;
@@ -1497,9 +1549,19 @@ body.is-classic .hud-top {
     border-width: 2px;
   }
 
-  .quest-cta,
-  .quest-secrets {
-    display: none;
+  /* İletişim çağrısı ve sır sayacı tek satıra oturur (gizleme yalnız dokunmatikte: aşağıdaki kural) */
+  .quest-cta {
+    width: auto;
+    margin-top: 0;
+    padding: 2px 8px 3px;
+    white-space: nowrap;
+  }
+
+  .hud-quest .quest-secrets {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    white-space: nowrap;
   }
 
   .hud-actions {
@@ -1516,7 +1578,7 @@ body.is-classic .hud-top {
   }
 
   .hud-btn::after {
-    inset: -4px -3px;
+    inset: -7px -3px;
   }
 
   /* Bildirimler üst çubuğun altından başlar ve birbirinin üstüne binmez */
@@ -1533,7 +1595,61 @@ body.is-classic .hud-top {
     bottom: calc(6px + var(--safe-b));
     max-width: calc(100% - 140px);
     padding: 4px 10px;
+    /* 18px yalnız Jersey 15 ile okunur (20px bu dar şeride sığmaz) */
+    font-family: var(--font-data);
     font-size: var(--fs-sm);
+  }
+}
+
+/* Yatay telefonda (dokunmatik) görev defteri yalnız ilerlemeyi gösterir. İnce işaretçide gizlenmez:
+   %200 yakınlaştırılmış masaüstü de bu yüksekliğe düşer */
+@media (max-height: 480px) and (pointer: coarse) {
+  .quest-cta,
+  .quest-secrets {
+    display: none;
+  }
+}
+
+/* Kısa ama ince işaretçili ekran: hiçbir şey gizlenmez; HUD düğmeleri simgeye iner (etiket metin olarak kalır),
+   görev defteri sığmazsa alt satıra sarar */
+@media (max-height: 480px) and (pointer: fine) {
+  .hud-btn {
+    min-width: 32px;
+  }
+
+  .hud-btn .hud-btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .hud-quest {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+  }
+}
+
+/* Dar ya da kısa ekranda "CV indir" düğmesi simge + "CV" olarak kısalır (tam metin erişilebilir ad olarak kalır):
+   klasik görünümde düğmeler tek satırda kalır, kısa ekranda şerit taşmaz */
+@media (max-width: 480px), (max-height: 480px) {
+  .hud-cv .hud-btn-label {
+    font-size: 0;
+  }
+
+  .hud-cv .hud-btn-label::after {
+    content: 'CV';
+    content: 'CV' / ''; /* erişilebilir ada ikinci kez eklenmesin */
+    font-size: var(--fs-sm);
+  }
+}
+
+/* Kısa ve dar ekranda (yatay telefon) oyun HUD'ı tek satırdır ve yer kalmaz: düğme yalnızca klasik görünümde durur */
+@media (max-height: 480px) and (max-width: 759px) and (pointer: coarse) {
+  body:not(.is-classic) .hud-cv {
+    display: none;
   }
 }
 
@@ -1547,6 +1663,42 @@ body.is-classic .hud-top {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+}
+
+/* ---------- Zorlanmış renkler / yüksek kontrast ---------- */
+
+/* Seviye kutucukları: dolu kutu metin rengiyle dolar, boş kutu yalnız çerçeve */
+@media (forced-colors: active) {
+  .lvl-b,
+  .cl-lvl-b {
+    border-color: CanvasText;
+  }
+
+  .lvl-b.is-on,
+  .cl-lvl-b.is-on {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+}
+
+/* Koyu yeşilde koyu metin 2,4:1'e düşer: bu kipte yeşil üstü metin açık renge döner (5,6:1) */
+@media (prefers-contrast: more) {
+  :root {
+    --wood: #5c3a28;
+    --orange: #a8431a;
+    --green: #2f6f48;
+    --on-green: #fff6e0;
+  }
+
+  .os-win-bar .bar-btn:focus-visible {
+    outline-color: var(--focus);
+  }
+
+  /* Koyu zemindeki görev çubuğu: koyulaşan yeşil boş dilimden ayrışmaz, açık ton kalır */
+  .quest-seg.is-on {
+    background: #7fd49a;
+    box-shadow: inset 0 -3px 0 #4fa66a;
   }
 }
 
@@ -1569,9 +1721,17 @@ body.is-classic .hud-top {
     display: none !important;
   }
 
+  /* Sayfa yüksekliğine sabitlenen kutular boş son sayfa üretmesin */
+  html,
+  body {
+    height: auto;
+    min-height: 0;
+  }
+
   body {
     overflow: visible;
     background: #fff;
+    color: #000;
   }
 
   #classic {

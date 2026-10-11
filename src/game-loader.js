@@ -37,13 +37,45 @@ function stageReady() {
   });
 }
 
+// Oyun görselleri motor inip çalışmaya başlayınca istenir; aynı dosyaları şimdiden önbelleğe almak
+// (motorla aynı anda indirmek) bekleme süresini kısaltır. Liste BootScene.preload ile aynıdır.
+const GAME_ASSETS = ['assets/sprites/player.webp', 'assets/sprites/firfir.png', 'assets/sprites/firfir-walk.png', 'assets/sprites/drone.png'];
+let warmed = false;
+function warmAssets() {
+  if (warmed || typeof fetch !== 'function') return;
+  warmed = true;
+  for (const url of GAME_ASSETS) fetch(url).catch(() => {});
+}
+
+// Chromium, inemeyen import()'u modül haritasında "başarısız" olarak tutar: aynı sayfada yeniden çağırmak ağa
+// hiç gitmez ve hep aynı hatayı verir. Bu yüzden başarısız bir denemeden sonra "Tekrar dene" sayfayı yeniler
+// (oyun adresiyle: ?classic kalkar, açılış ekranı gelir). Önce sunucuya ulaşılıp ulaşılmadığına bakılır:
+// ağ hâlâ yoksa sayfa yenilenmez (tarayıcının hata sayfasına düşülmesin), söz reddedilir ve hata iletisi kalır.
+let importFailed = false;
+function retryByReload() {
+  return fetch(window.location.href, { method: 'HEAD', cache: 'no-store' }).then((res) => {
+    if (!res.ok) throw new Error('offline');
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('classic');
+      window.location.replace(url);
+    } catch {
+      window.location.reload();
+    }
+    return new Promise(() => {}); // sayfa yenilenene kadar "Yükleniyor…" kalır
+  });
+}
+
 // Oda sahnesi hazır olduğunda çözülen söz. Tekrar çağrılınca aynı sözü verir.
-// Yükleme başarısız olursa da çözülür (arayüz kilitli kalmasın); hata konsola yazılır.
+// Yükleme başarısız olursa söz reddedilir (çağıran hata durumunu gösterir) ve bir sonraki
+// loadGame() çağrısı yüklemeyi yeniden dener; hata konsola da yazılır.
 export function loadGame() {
   if (promise) return promise;
+  if (importFailed) return retryByReload();
   const chunk = import('./game.js');
+  warmAssets();
   chunk.then(() => setProgress(0.3)).catch(() => {});
-  promise = Promise.all([chunk, stageReady()])
+  const attempt = Promise.all([chunk, stageReady()])
     .then(([m]) => {
       // Parça %30, görseller kalan %70
       const { game, ready: roomReady } = m.startGame({ onProgress: (p) => setProgress(0.3 + p * 0.7) });
@@ -51,14 +83,20 @@ export function loadGame() {
       if (import.meta.env.DEV) window.__game = game;
       return roomReady;
     })
-    .catch((err) => {
-      console.error('[game] yüklenemedi', err);
-    })
     .then(() => {
       ready = true;
       setProgress(1);
     });
-  return promise;
+  promise = attempt;
+  // Yalnızca parçanın kendisi inemediyse (ağ hatası) sonraki deneme sayfayı yeniler; bkz. retryByReload
+  chunk.catch(() => {
+    importFailed = true;
+  });
+  attempt.catch((err) => {
+    console.error('[game] yüklenemedi', err);
+    if (promise === attempt) promise = null; // yeniden denenebilsin
+  });
+  return attempt;
 }
 
 export function isGameReady() {

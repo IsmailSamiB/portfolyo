@@ -72,6 +72,7 @@ export function createDialog(root) {
     speakerEl.textContent = speaker;
     speakerEl.hidden = !speaker;
     box.title = pick(S.dialog.next);
+    box.setAttribute('aria-label', pick(S.dialog.next));
     open = true;
     openedAt = performance.now();
     catcher.hidden = false;
@@ -128,6 +129,7 @@ export function createDialog(root) {
   on('dialog:show', show);
   on('lang:changed', () => {
     box.title = pick(S.dialog.next);
+    box.setAttribute('aria-label', pick(S.dialog.next));
   });
 
   return { close, isOpen: () => open };

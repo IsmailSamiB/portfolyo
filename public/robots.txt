@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ismailsamib.github.io/portfolyo/sitemap.xml

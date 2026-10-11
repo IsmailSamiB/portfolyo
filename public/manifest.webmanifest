@@ -1,0 +1,13 @@
+{
+  "name": "İsmail Sami Başaraner · Portfolyo",
+  "short_name": "Portfolyo",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#2b2030",
+  "theme_color": "#2b2030",
+  "icons": [
+    { "src": "favicon.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

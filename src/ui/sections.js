@@ -1,4 +1,5 @@
 import './panels.css';
+import { emit, on } from '../bridge.js';
 import { pick, lang } from '../i18n.js';
 import content from '../content/content.js';
 import { sortedProjects, projectDate } from '../content/projects.js';
@@ -541,10 +542,30 @@ function clock(st) {
   return node;
 }
 
+// panel:open { id: 'projects', project } ile istenen proje (projeye doğrudan bağlantı): panel çizilirken
+// penceresi açılır. Bu dinleyici panels.js'tekinden önce kaydolur, yani istek ilk çizimden önce hazırdır.
+let requestedProject = '';
+on('panel:open', (detail) => {
+  requestedProject = detail && detail.id === 'projects' && typeof detail.project === 'string' ? detail.project : '';
+});
+
+// Proje penceresini açmanın tek yolu (ikon tıklaması ve doğrudan bağlantı): durumu kurar, project:open yayar.
+function openWindow(st, id) {
+  st.openId = id;
+  st.gIdx = 0;
+  st.focus = 'window';
+  emit('project:open', { id });
+}
+
 // Retro masaüstü: ikonlar + açılan proje penceresi.
 function projects(ctx) {
   const st = ctx.state;
   const list = sortedProjects();
+  if (requestedProject) {
+    // İçerikte olmayan kimlik yok sayılır (masaüstü normal açılır).
+    if (list.some((p) => p.id === requestedProject)) openWindow(st, requestedProject);
+    requestedProject = '';
+  }
   const current = list.find((p) => p.id === st.openId) || null;
 
   const closeWindow = () => {
@@ -571,9 +592,7 @@ function projects(ctx) {
           type: 'button',
           class: 'os-icon',
           onclick: () => {
-            st.openId = p.id;
-            st.gIdx = 0;
-            st.focus = 'window';
+            openWindow(st, p.id);
             ctx.refresh();
           },
         },

@@ -2,11 +2,13 @@
 // Tüm içerik güvenli DOM ile (textContent) yazılır.
 import './admin.css';
 import { el } from '../ui/dom.js';
+import { shareSection } from './share.js';
 import { isRemote, admin, EVENTS_LIMIT } from '../data/store.js';
 import {
   summarize,
   dailyVisits,
   byRef,
+  refDetail,
   topTouched,
   secrets,
   gameScores,
@@ -38,6 +40,7 @@ function fmtDay(key) {
 
 const DEVICE_TR = { mobile: 'mobil', desktop: 'masaüstü' };
 const MODE_TR = { game: 'oyun', classic: 'klasik', 'ikisi de': 'oyun + klasik' };
+const NO_DATA = 'kayıt yok';
 
 // ---------- Küçük görünüm parçaları ----------
 
@@ -201,6 +204,83 @@ function sessionsView(rows) {
   );
 }
 
+// "ad (sayı), ad (sayı)" biçiminde kısa liste; boşsa "kayıt yok"
+function countsText(items, max = 8) {
+  if (!items.length) return NO_DATA;
+  const text = items.slice(0, max).map((item) => `${item.id} (${item.count})`).join(', ');
+  return items.length > max ? `${text} ve ${items.length - max} tane daha` : text;
+}
+
+// Bir etiketin ayrıntı özeti: yalnızca eldeki olaylardan; etiket-değer çiftleri düz metin
+function refDetailView(events, ref) {
+  const d = refDetail(events, ref);
+  if (!d.has) return empty(NO_DATA);
+  const modeParts = [
+    ['oyun', d.modes.game],
+    ['klasik', d.modes.classic],
+    ['oyun + klasik', d.modes.both],
+  ].filter(([, n]) => n > 0);
+  const rows = [
+    ['İlk ziyaret', fmtTime(d.first)],
+    ['Son ziyaret', fmtTime(d.last)],
+    ['Oturum / ziyaretçi', `${d.sessions} oturum, ${d.visitors} ziyaretçi`],
+    ['Cihaz', countsText(d.devices.map((x) => ({ id: DEVICE_TR[x.id] || x.id, count: x.count })))],
+    ['Kip', modeParts.length ? modeParts.map(([name, n]) => `${name} (${n})`).join(', ') : NO_DATA],
+    ['Açılan bölümler', countsText([...d.panels, ...d.overlays].sort((a, b) => b.count - a.count))],
+    ['Açılan projeler', countsText(d.projects)],
+    ['CV', d.cvDownloads ? `indirildi (${d.cvDownloads} tıklama)` : 'indirilmedi'],
+    ['Dış bağlantılar', countsText(d.links)],
+    ['Toplam süre', formatDuration(d.totalSeconds)],
+    ['Ortalama süre', formatDuration(d.avgSeconds)],
+    ['Tur', d.tourSessions ? `${d.tourSessions} oturumda kullanıldı` : 'kullanılmadı'],
+  ];
+  return el(
+    'dl',
+    { class: 'adm-ref' },
+    rows.map(([label, value]) => el('div', { class: 'adm-ref__row' }, el('dt', { text: label }), el('dd', { text: value }))),
+  );
+}
+
+// Etiket tablosu: etiket bir düğme; basınca altında o etiketin özeti açılır (aynı anda bir tane)
+function refTable(events, refs) {
+  let openRow = null;
+  const body = el('tbody');
+  refs.forEach((r, i) => {
+    const name = r.ref || '(etiketsiz)';
+    const panelId = `adm-ref-${i}`;
+    const btn = el('button', { class: 'adm-reftoggle', type: 'button', 'aria-expanded': 'false', 'aria-controls': panelId, text: name });
+    const detail = el('tr', { class: 'adm-refrow', id: panelId, hidden: true }, el('td', { colspan: 4 }));
+    btn.addEventListener('click', () => {
+      const willOpen = detail.hidden;
+      if (openRow && openRow.detail !== detail) {
+        openRow.detail.hidden = true;
+        openRow.btn.setAttribute('aria-expanded', 'false');
+      }
+      detail.hidden = !willOpen;
+      btn.setAttribute('aria-expanded', String(willOpen));
+      if (willOpen) {
+        if (!detail.firstChild.firstChild) detail.firstChild.append(refDetailView(events, r.ref));
+        openRow = { detail, btn };
+      } else openRow = null;
+    });
+    body.append(
+      el('tr', null, el('th', { scope: 'row' }, btn), el('td', { text: r.sessions }), el('td', { text: r.visitors }), el('td', { text: fmtTime(r.last) })),
+      detail,
+    );
+  });
+  return el(
+    'div',
+    { class: 'adm-table-wrap' },
+    el(
+      'table',
+      { class: 'adm-table' },
+      el('caption', { class: 'sr-only', text: 'Şirket etiketine göre ziyaretler; etikete basınca ayrıntı açılır' }),
+      el('thead', null, el('tr', null, ['Etiket', 'Oturum', 'Ziyaretçi', 'Son ziyaret'].map((h) => el('th', { scope: 'col', text: h })))),
+      body,
+    ),
+  );
+}
+
 function dashboard(events, days) {
   const touched = topTouched(events);
   const scores = gameScores(events, 10);
@@ -212,13 +292,8 @@ function dashboard(events, days) {
     section(
       'Şirket etiketine göre',
       el('p', { class: 'adm-note', text: 'Başvuru bağlantısındaki ?ref=… değeri. Etiketsiz ziyaretler "(etiketsiz)" satırında.' }),
-      refs.length
-        ? table(
-            ['Etiket', 'Oturum', 'Ziyaretçi', 'Son ziyaret'],
-            refs.slice(0, REF_MAX).map((r) => [r.ref || '(etiketsiz)', r.sessions, r.visitors, fmtTime(r.last)]),
-            'Şirket etiketine göre ziyaretler',
-          )
-        : empty(),
+      refs.length ? refTable(events, refs.slice(0, REF_MAX)) : empty(),
+      refs.length ? el('p', { class: 'adm-note', text: 'Etikete basınca ayrıntı açılır. Özet yalnızca yüklenen olaylardan hesaplanır (en çok ' + EVENTS_LIMIT + ' olay).' }) : null,
       refs.length > REF_MAX ? el('p', { class: 'adm-note', text: `ve ${refs.length - REF_MAX} tane daha` }) : null,
     ),
     el(
@@ -226,6 +301,7 @@ function dashboard(events, days) {
       { class: 'adm-grid' },
       section('En çok dokunulan eşyalar', barList(touched.interact)),
       section('En çok açılan bölümler', barList(touched.panel)),
+      section('En çok açılan projeler', barList(touched.project)),
       section('Bulunan sırlar', el('p', { class: 'adm-note', text: 'Her sırrı bulan oturum sayısı.' }), barList(secrets(events), 20)),
       section('Dış bağlantı tıklamaları', barList(linkClicks(events))),
     ),
@@ -268,6 +344,7 @@ export function initAdmin() {
 
   const status = el('p', { class: 'adm-status', role: 'status', 'aria-live': 'polite' });
   const content = el('div', { class: 'adm-content' });
+  const shareHost = el('div', { class: 'adm-content', hidden: true });
   const guestbookHost = el('div', { class: 'adm-content' });
   const scoresHost = el('div', { class: 'adm-content' });
   const who = el('span', { class: 'adm-who' });
@@ -311,6 +388,7 @@ export function initAdmin() {
       { class: 'adm-main' },
       el('p', { class: 'adm-note', text: 'Not: ziyaret verisi doğrulanmamıştır (herkes olay yazabilir); sayılar yalnızca fikir verir.' }),
       status,
+      shareHost,
       content,
       scoresHost,
       guestbookHost,
@@ -545,6 +623,11 @@ export function initAdmin() {
     if (token === loadToken) refreshBtn.disabled = false;
   }
 
+  function showShare() {
+    if (!shareHost.firstChild) shareHost.append(shareSection(section));
+    shareHost.hidden = false;
+  }
+
   function clear() {
     loadToken += 1;
     content.replaceChildren();
@@ -552,6 +635,7 @@ export function initAdmin() {
     scoresHost.replaceChildren();
     controls.hidden = true;
     account.hidden = true;
+    shareHost.hidden = true;
     setStatus('');
   }
 
@@ -576,6 +660,7 @@ export function initAdmin() {
       ),
     );
     loadScores().catch(() => {}); // yerel skor tablosu
+    showShare(); // Firebase'siz yerel modda da çalışır
     if (DEV) {
       // Geliştirme: bu sekmenin bellekteki olaylarıyla paneli dene
       const host = el('div', { class: 'adm-content' });
@@ -648,6 +733,7 @@ export function initAdmin() {
     controls.hidden = false;
     account.hidden = false;
     who.textContent = user.email;
+    showShare();
     load();
   }
 

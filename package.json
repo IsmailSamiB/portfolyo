@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "images": "node scripts/optimize-images.mjs"
+    "images": "node scripts/optimize-images.mjs",
+    "qr": "node scripts/qr-site.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "qrcode-generator": "^2.0.4"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.13.6"

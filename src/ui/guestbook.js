@@ -1,7 +1,7 @@
 import './guestbook.css';
 import { emit, on } from '../bridge.js';
 import { lang, pick } from '../i18n.js';
-import { guestbook } from '../data/store.js';
+import { guestbook, hasLink } from '../data/store.js';
 import { sfx } from '../audio.js';
 import { el, reducedMotion, blurIfPointer } from './dom.js';
 import { setLock } from './lock.js';
@@ -17,7 +17,6 @@ const T = {
   close: { tr: 'Kapat', en: 'Close' },
   prev: { tr: 'Önceki sayfa', en: 'Previous page' },
   next: { tr: 'Sonraki sayfa', en: 'Next page' },
-  page: { tr: 'Sayfa', en: 'Page' },
   loading: { tr: 'Defter açılıyor…', en: 'Opening the guestbook…' },
   emptyTitle: { tr: 'İlk yazan sen ol', en: 'Be the first to write' },
   emptyText: {
@@ -27,16 +26,24 @@ const T = {
   formTitle: { tr: 'Bir not bırak', en: 'Leave a note' },
   name: { tr: 'Adın', en: 'Your name' },
   message: { tr: 'Mesajın', en: 'Your message' },
-  submit: { tr: 'Deftere yaz', en: 'Sign the guestbook' },
-  sending: { tr: 'Yazılıyor…', en: 'Writing…' },
-  toWrite: { tr: 'Yaz', en: 'Write' },
-  toRead: { tr: 'Oku', en: 'Read' },
-  more: { tr: 'Daha fazla göster', en: 'Show more' },
+  submit: { tr: 'Notu gönder', en: 'Send note' },
+  sending: { tr: 'Gönderiliyor…', en: 'Sending…' },
+  toWrite: { tr: 'Not bırak', en: 'Leave a note' },
+  toRead: { tr: 'Notları oku', en: 'Read notes' },
+  more: { tr: 'Devamını göster', en: 'Show more' },
+  note: {
+    tr: 'Adın ve notun, onaylandıktan sonra herkese görünür. E-posta ya da bağlantı ekleme.',
+    en: 'Your name and note become public once approved. Please leave out emails and links.',
+  },
+  nameMissing: { tr: 'Adını yaz.', en: 'Enter your name.' },
+  messageShort: { tr: 'Mesaj en az 3 karakter olmalı.', en: 'Your message needs at least 3 characters.' },
+  loadFailed: { tr: 'Defter şu an açılamadı.', en: 'The guestbook couldn’t be loaded.' },
+  retry: { tr: 'Tekrar dene', en: 'Try again' },
+  nameHint: { tr: 'En çok 40 karakter', en: 'Up to 40 characters' },
   list: { tr: 'Onaylı mesajlar', en: 'Approved messages' },
   thanks: { tr: 'Teşekkürler! Mesajın onaydan sonra görünecek.', en: 'Thank you! Your message will appear after approval.' },
-  invalid: { tr: 'Ad ve en az 3 karakterlik bir mesaj yaz', en: 'Enter a name and a message of at least 3 characters' },
   link: { tr: 'Bağlantı içeren mesajlar kabul edilmiyor', en: 'Messages containing links are not accepted' },
-  rate: { tr: 'Biraz bekleyip tekrar dene', en: 'Wait a bit and try again' },
+  rate: { tr: 'Üst üste not gönderemezsin; 2 dakika sonra tekrar dene.', en: 'Notes can be sent once every 2 minutes; try again shortly.' },
   offline: { tr: 'Defter şu an çevrimdışı; daha sonra tekrar dene', en: 'The guestbook is offline right now; try again later' },
 };
 
@@ -52,14 +59,33 @@ function fmtDate(ms) {
   }
 }
 
-// listApproved hatasında boş liste gibi davran
+// Okuma hatasını boş defterden ayırır: hatada null döner, boş defterde [].
 async function loadApproved() {
   try {
     const list = await guestbook.listApproved();
     return Array.isArray(list) ? list : [];
   } catch {
-    return [];
+    return null;
   }
+}
+
+// Yeniden çizimden sonra odak yalnızca kullanıcı "Tekrar dene"ye bastıysa taşınır (ilk yüklemede odak çalınmaz):
+// hata sürerse yeni "Tekrar dene" düğmesine, yoksa liste kapsayıcısına (tabindex=-1).
+// fallback: liste gizliyse (klasik görünümde boş defter: yalnız davet + form görünür) odağın gideceği kapsayıcı.
+function refocusAfterRetry(host, failed, fallback) {
+  let target = failed ? host.querySelector('.gb-error-state button') : host;
+  if (!(target instanceof HTMLElement) || target.offsetParent === null) target = fallback;
+  if (target instanceof HTMLElement && target.offsetParent !== null) target.focus({ preventScroll: true });
+}
+
+// Okuma hatası: mesaj + "Tekrar dene"; form açık kalır
+function errorNode(onRetry) {
+  return el(
+    'div',
+    { class: 'gb-error-state' },
+    el('p', { class: 'gb-error-text', text: pick(T.loadFailed) }),
+    el('button', { type: 'button', class: 'px-btn', onclick: () => onRetry(true) }, pick(T.retry)), // odak yeniden çizimden sonra taşınır; blurIfPointer burada kullanılmaz
+  );
 }
 
 // Tek mesaj: metin her zaman metin düğümü olarak eklenir
@@ -91,8 +117,10 @@ function emptyNode() {
 function createForm() {
   const id = `gb${(uid += 1)}`;
   let busy = false;
-  let statusKind = null; // 'ok' | 'thanks' hata nedeni
+  let statusKind = null; // 'thanks' | 'link' | 'rate' | 'offline'
   let alive = true;
+  let nearOn = false;
+  const errors = { name: null, message: null }; // T anahtarı ya da null
 
   const nameInput = el('input', {
     type: 'text',
@@ -113,17 +141,29 @@ function createForm() {
   });
   const nameLabel = el('label', { class: 'gb-label', for: `${id}-name` });
   const msgLabel = el('label', { class: 'gb-label', for: `${id}-msg` });
-  const counter = el('span', { class: 'gb-count', id: `${id}-count`, 'aria-hidden': 'true' });
+  const note = el('p', { class: 'gb-note' });
+  const nameHint = el('p', { class: 'gb-count gb-hint', id: `${id}-name-hint` });
+  const nameError = el('p', { class: 'gb-field-error', id: `${id}-name-err`, hidden: true });
+  const msgError = el('p', { class: 'gb-field-error', id: `${id}-msg-err`, hidden: true });
+  const counter = el('span', { class: 'gb-count', id: `${id}-count` });
+  // Ekran okuyucu sayacı yalnızca sınırın %90'ında duyurur
+  const nearLive = el('span', { class: 'sr-only', 'aria-live': 'polite' });
   const status = el('p', { class: 'gb-status', role: 'status', 'aria-live': 'polite' });
   const submitBtn = el('button', { type: 'submit', class: 'gb-btn gb-btn--accent' });
   const form = el(
     'form',
     { class: 'gb-form', novalidate: true },
-    el('div', { class: 'gb-field' }, nameLabel, nameInput),
-    el('div', { class: 'gb-field' }, el('div', { class: 'gb-label-row' }, msgLabel, counter), msgInput),
+    note,
+    el('div', { class: 'gb-field' }, nameLabel, nameInput, nameHint, nameError),
+    el('div', { class: 'gb-field' }, el('div', { class: 'gb-label-row' }, msgLabel, counter, nearLive), msgInput, msgError),
     submitBtn,
     status,
   );
+  nameInput.setAttribute('aria-describedby', nameHint.id);
+  const fields = [
+    { key: 'name', input: nameInput, node: nameError, hint: nameHint, bad: () => !nameInput.value.trim(), msg: 'nameMissing' },
+    { key: 'message', input: msgInput, node: msgError, hint: null, bad: () => msgInput.value.trim().length < 3, msg: 'messageShort' },
+  ];
 
   // Yazarken oyun tuşları (E, Boşluk, WASD) oyuna gitmesin
   for (const type of ['keydown', 'keyup']) {
@@ -135,16 +175,44 @@ function createForm() {
 
   function updateCount() {
     counter.textContent = `${msgInput.value.length}/${MSG_MAX}`;
+    const near = msgInput.value.length >= MSG_MAX * 0.9;
+    counter.classList.toggle('is-near', near);
+    // Yalnızca eşiği geçerken duyur
+    if (near && !nearOn) nearLive.textContent = counter.textContent;
+    else if (!near) nearLive.textContent = '';
+    nearOn = near;
   }
   msgInput.addEventListener('input', updateCount);
+
+  // Alan hatasını yazar/kaldırır; aria-invalid ve aria-describedby bağlanır
+  function showError(field, msgKey) {
+    errors[field.key] = msgKey;
+    field.node.hidden = !msgKey;
+    field.node.textContent = msgKey ? pick(T[msgKey]) : '';
+    if (msgKey) field.input.setAttribute('aria-invalid', 'true');
+    else field.input.removeAttribute('aria-invalid');
+    const ids = [];
+    if (field.hint) ids.push(field.hint.id);
+    if (msgKey) ids.push(field.node.id);
+    if (ids.length) field.input.setAttribute('aria-describedby', ids.join(' '));
+    else field.input.removeAttribute('aria-describedby');
+  }
+
+  function validateField(field) {
+    showError(field, field.bad() ? field.msg : null);
+    return !errors[field.key];
+  }
 
   function retext() {
     nameLabel.textContent = pick(T.name);
     msgLabel.textContent = pick(T.message);
+    note.textContent = pick(T.note);
+    nameHint.textContent = pick(T.nameHint);
     submitBtn.textContent = pick(busy ? T.sending : T.submit);
     if (statusKind) {
       status.textContent = pick(T[statusKind]);
     }
+    for (const f of fields) if (errors[f.key]) f.node.textContent = pick(T[errors[f.key]]);
     updateCount();
   }
 
@@ -158,7 +226,16 @@ function createForm() {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (busy) return;
+    // Alan başına doğrulama; düğme devre dışı bırakılmaz, ilk hatalı alana odaklanılır
+    const bad = fields.filter((f) => !validateField(f));
+    if (bad.length) {
+      setStatus(null);
+      bad[0].input.focus();
+      return;
+    }
     busy = true;
+    // Devre dışı kalan düğme odağı bırakır; klavyeyle gönderildiyse iş bitince odak düğmeye geri verilir
+    const hadFocus = document.activeElement === submitBtn;
     submitBtn.disabled = true;
     submitBtn.setAttribute('aria-busy', 'true');
     retext();
@@ -172,24 +249,42 @@ function createForm() {
     submitBtn.disabled = false;
     submitBtn.removeAttribute('aria-busy');
     if (!alive) return;
+    if (hadFocus && submitBtn.isConnected && (!document.activeElement || document.activeElement === document.body)) {
+      submitBtn.focus({ preventScroll: true });
+    }
     if (result && result.ok) {
       nameInput.value = '';
       msgInput.value = '';
+      for (const f of fields) showError(f, null);
       setStatus('thanks');
       sfx('secret');
     } else {
-      const reason = result && T[result.reason] && ['invalid', 'link', 'rate', 'offline'].includes(result.reason) ? result.reason : 'offline';
+      const reason = result && ['link', 'rate', 'offline'].includes(result.reason) ? result.reason : 'offline';
       setStatus(reason);
     }
     retext();
   });
 
-  // Yazmaya başlayınca eski durum mesajı silinsin
-  const clearStatus = () => {
-    if (statusKind) setStatus(null);
+  // Alan terk edilince doğrula; düzelince hata kalkar
+  for (const f of fields) {
+    f.input.addEventListener('blur', () => {
+      if (f.input.value || errors[f.key]) validateField(f);
+    });
+    f.input.addEventListener('input', () => {
+      if (errors[f.key] && !f.bad()) showError(f, null);
+    });
+  }
+
+  // Yazmaya başlayınca eski durum mesajı silinsin; bağlantı uyarısı yazarken de çıksın
+  const onInput = () => {
+    if (statusKind && statusKind !== 'link') setStatus(null);
+    if (hasLink(nameInput.value) || hasLink(msgInput.value)) {
+      if (statusKind !== 'link') setStatus('link'); // her tuşta yeniden duyurulmasın
+    }
+    else if (statusKind === 'link') setStatus(null);
   };
-  nameInput.addEventListener('input', clearStatus);
-  msgInput.addEventListener('input', clearStatus);
+  nameInput.addEventListener('input', onInput);
+  msgInput.addEventListener('input', onInput);
 
   retext();
   return {
@@ -214,7 +309,7 @@ export function initGuestbook() {
 
   const titleEl = el('h2', { class: 'gb-title', id: 'gb-title' });
   const closeBtn = el('button', { type: 'button', class: 'gb-x', onclick: () => close() }, '✕');
-  const listEl = el('div', { class: 'gb-list', 'aria-live': 'polite' });
+  const listEl = el('div', { class: 'gb-list', 'aria-live': 'polite', tabindex: '-1' });
   const prevBtn = el('button', { type: 'button', class: 'gb-btn gb-arrow', onclick: (e) => { blurIfPointer(e); turn(-1); } }, '◄');
   const nextBtn = el('button', { type: 'button', class: 'gb-btn gb-arrow', onclick: (e) => { blurIfPointer(e); turn(1); } }, '►');
   const pageNo = el('span', { class: 'gb-pageno' });
@@ -248,6 +343,7 @@ export function initGuestbook() {
   let lastFocus = null;
   let found = false;
   let entries = null; // null: yükleniyor
+  let failed = false; // okuma hatası
   let page = 0;
   let token = 0;
 
@@ -262,8 +358,10 @@ export function initGuestbook() {
 
   function renderList() {
     listEl.replaceChildren();
-    listEl.setAttribute('aria-busy', entries ? 'false' : 'true');
-    if (!entries) {
+    listEl.setAttribute('aria-busy', entries || failed ? 'false' : 'true');
+    if (failed) {
+      listEl.append(errorNode(load));
+    } else if (!entries) {
       listEl.append(
         el('p', { class: 'gb-loading', text: pick(T.loading) }),
         el('div', { class: 'gb-skel', 'aria-hidden': 'true' }, el('i'), el('i'), el('i')),
@@ -278,7 +376,7 @@ export function initGuestbook() {
     pageNo.textContent = `${entries && entries.length ? page + 1 : 1}/${total}`;
     prevBtn.disabled = !entries || page <= 0;
     nextBtn.disabled = !entries || page >= total - 1;
-    pager.hidden = Boolean(entries && entries.length === 0);
+    pager.hidden = failed || Boolean(entries && entries.length === 0);
   }
 
   function renderText() {
@@ -343,6 +441,8 @@ export function initGuestbook() {
 
   layer.addEventListener('click', (event) => {
     if (guarded()) return;
+    // “Tekrar dene” tıklanınca liste yeniden çizilir ve düğme DOM’dan çıkar; kopmuş hedef "dışarı" sayılmasın
+    if (!(event.target instanceof Node) || !event.target.isConnected) return;
     if (!wrap.contains(event.target)) close();
   });
 
@@ -409,11 +509,21 @@ export function initGuestbook() {
       found = true;
       emit('secret:found', { id: 'guestbook' });
     }
+    load();
+  }
+
+  // Listeyi (yeniden) yükler; hata ile boş defter ayrı gösterilir
+  function load(byUser = false) {
+    entries = null;
+    failed = false;
+    renderList();
     const mine = (token += 1);
     loadApproved().then((list) => {
       if (mine !== token || !isOpen) return;
-      entries = list;
+      failed = list === null;
+      entries = failed ? null : list;
       renderList();
+      if (byUser === true) refocusAfterRetry(listEl, failed);
     });
   }
 
@@ -445,12 +555,13 @@ export function initGuestbook() {
 export function mountGuestbookSection(container) {
   if (!container) return () => {};
   let entries = null;
+  let failed = false;
   let shown = CARD_STEP;
   let alive = true;
 
   const form = createForm();
   const formTitle = el('h3', { class: 'gb-sub' });
-  const grid = el('div', { class: 'gb-cards', role: 'list', 'aria-label': pick(T.list) });
+  const grid = el('div', { class: 'gb-cards', role: 'list', 'aria-label': pick(T.list), tabindex: '-1' });
   const moreBtn = el('button', {
     type: 'button',
     class: 'gb-btn',
@@ -471,7 +582,7 @@ export function mountGuestbookSection(container) {
     inviteText,
   );
   const formPane = el('div', { class: 'gb-formpane' }, formTitle, form.node);
-  const formBox = el('div', { class: 'gb-formbox' }, invite, formPane);
+  const formBox = el('div', { class: 'gb-formbox', tabindex: '-1' }, invite, formPane);
   container.replaceChildren(grid, moreRow, formBox);
 
   function setSplit(on) {
@@ -486,6 +597,12 @@ export function mountGuestbookSection(container) {
     grid.setAttribute('aria-label', pick(T.list));
     inviteTitle.textContent = pick(T.emptyTitle);
     inviteText.textContent = pick(T.emptyText);
+    if (failed) {
+      setSplit(false);
+      grid.append(errorNode(load));
+      moreRow.hidden = true;
+      return;
+    }
     if (!entries) {
       setSplit(false);
       grid.append(el('p', { class: 'gb-loading', text: pick(T.loading) }));
@@ -514,12 +631,21 @@ export function mountGuestbookSection(container) {
   }
 
   const off = on('lang:changed', renderText);
-  renderText();
-  loadApproved().then((list) => {
-    if (!alive) return;
-    entries = list;
+  function load(byUser = false) {
+    entries = null;
+    failed = false;
     renderCards();
-  });
+    loadApproved().then((list) => {
+      if (!alive) return;
+      failed = list === null;
+      entries = failed ? null : list;
+      renderCards();
+      if (byUser === true) refocusAfterRetry(grid, failed, formBox);
+    });
+  }
+
+  renderText();
+  load();
 
   return () => {
     alive = false;

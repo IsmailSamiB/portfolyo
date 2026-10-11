@@ -4,16 +4,30 @@
 // Başvuru linkine eklenen ?ref=SirketAdi değeri. Sahte cümle yazdırılmasın diye sıkı süzülür:
 // NFKC normalleştirme; yalnızca Latin harfleri (Türkçe dahil), rakam, boşluk, & ' -; nokta yok;
 // en çok 3 sözcük (fazlası boş döner); en çok 24 karakter. Değer bir kez hesaplanır.
-function computeRef() {
+export function cleanRef(raw) {
   try {
-    const raw = new URLSearchParams(window.location.search).get('ref') || '';
-    const clean = raw
+    const clean = String(raw ?? '')
       .normalize('NFKC')
       .replace(/[^\p{Script=Latin}\p{N} &'-]/gu, '')
       .replace(/\s+/g, ' ')
       .trim();
     if (!clean || clean.split(' ').length > 3) return '';
     return Array.from(clean).slice(0, 24).join('').trim();
+  } catch {
+    return '';
+  }
+}
+
+// ?proje=<id> değeri (projeye doğrudan bağlantı): yalnızca a-z, 0-9 ve tire; en çok 40 karakter.
+// Kurala uymayan değer boş döner. İçerikte böyle bir proje olup olmadığına çağıran bakar.
+export function cleanProjectId(raw) {
+  const value = typeof raw === 'string' ? raw : '';
+  return /^[a-z0-9-]{1,40}$/.test(value) ? value : '';
+}
+
+function computeRef() {
+  try {
+    return cleanRef(new URLSearchParams(window.location.search).get('ref') || '');
   } catch {
     return '';
   }
@@ -31,11 +45,13 @@ export function introLines(name, title, ref) {
       ref ? `Merhaba ${ref} ekibi, hoş geldiniz! Ben ${name}.` : `Merhaba, hoş geldin! Ben ${name}.`,
       `${title}. Burası benim odam: bilgisayarda projelerim, kitaplıkta yeteneklerim, panoda hikâyem, telefonda iletişim bilgilerim var.`,
       'Vaktin azsa “Beni gezdir” düğmesi dört bölümü 30 saniyede gösterir. Çıkmadan ziyaretçi defterine bir not bırakabilirsin.',
+      'Yürümek için WASD ya da ok tuşları (telefonda dokun); bir şeye bakmak için E ya da üstüne dokun.',
     ],
     en: [
       ref ? `Hello ${ref} team, welcome! I’m ${name}.` : `Hi, welcome! I’m ${name}.`,
       `${title}. This is my room: projects on the computer, skills on the bookshelf, my story on the corkboard and contact details on the phone.`,
       'Short on time? The “Take the tour” button shows the four sections in 30 seconds. Feel free to sign the guestbook before you leave.',
+      'Walk with WASD or the arrow keys (tap on a phone); press E or tap an object to look at it.',
     ],
   };
 }

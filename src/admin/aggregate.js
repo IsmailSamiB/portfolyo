@@ -117,6 +117,60 @@ export function byRef(events) {
     .sort((a, b) => b.last - a.last);
 }
 
+// Tek bir şirket etiketinin (ref) özeti; yalnızca eldeki olaylardan hesaplanır.
+// ref '' = etiketsiz ziyaretler. Veri yoksa has: false.
+export function refDetail(events, ref) {
+  const mine = events.filter((e) => e && (e.ref || '') === (ref || ''));
+  const sessions = groupBySession(mine);
+  const visitors = new Set();
+  let first = 0;
+  let last = 0;
+  for (const event of mine) {
+    if (event.visitor) visitors.add(event.visitor);
+    if (Number.isFinite(event.at)) {
+      if (!first || event.at < first) first = event.at;
+      if (event.at > last) last = event.at;
+    }
+  }
+
+  const devices = new Map();
+  const modes = { game: 0, classic: 0, both: 0 };
+  let tourSessions = 0;
+  let secondsSum = 0;
+  let secondsCount = 0;
+  for (const list of sessions.values()) {
+    const device = list[0].device || '?';
+    devices.set(device, (devices.get(device) || 0) + 1);
+    const classic = list.some((e) => e.mode === 'classic' || (e.type === 'mode' && e.data && e.data.mode === 'classic'));
+    const game = list.some((e) => e.mode === 'game');
+    modes[classic ? (game ? 'both' : 'classic') : 'game'] += 1;
+    if (list.some((e) => e.type === 'tour' && e.data && e.data.active === true)) tourSessions += 1;
+    const seconds = sessionSeconds(list);
+    if (seconds != null) {
+      secondsSum += seconds;
+      secondsCount += 1;
+    }
+  }
+
+  return {
+    has: mine.length > 0,
+    first,
+    last,
+    sessions: sessions.size,
+    visitors: visitors.size,
+    devices: sortedCounts(devices),
+    modes,
+    panels: countById(mine, 'panel'),
+    overlays: countById(mine, 'overlay'),
+    projects: countById(mine, 'project'),
+    cvDownloads: mine.filter((e) => e.type === 'cv').length,
+    links: linkClicks(mine),
+    totalSeconds: secondsCount ? secondsSum : null,
+    avgSeconds: secondsCount ? Math.round(secondsSum / secondsCount) : null,
+    tourSessions,
+  };
+}
+
 // Belirli türdeki olayların data.id'ye göre sayımı (çoktan aza)
 export function countById(events, type) {
   const map = new Map();
@@ -131,7 +185,7 @@ export function countById(events, type) {
 
 // En çok dokunulanlar: eşyalar (interact) ve açılan bölümler (panel)
 export function topTouched(events) {
-  return { interact: countById(events, 'interact'), panel: countById(events, 'panel') };
+  return { interact: countById(events, 'interact'), panel: countById(events, 'panel'), project: countById(events, 'project') };
 }
 
 // Sırlar: her sırrı kaç oturumun bulduğu
@@ -180,6 +234,7 @@ function trailLabel(event) {
     case 'panel':
     case 'interact':
     case 'overlay':
+    case 'project':
     case 'secret':
       return data.id ? String(data.id) : null;
     case 'cv':

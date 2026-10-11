@@ -11,19 +11,19 @@ export default {
     name: 'İsmail Sami Başaraner',
     title: { tr: 'İstatistik Lisans Öğrencisi', en: 'Undergraduate Statistics Student' },
     tagline: {
-      tr: 'Veriyle çalışmayı öğrenen, ekip işine ve organizasyona yatkın bir istatistik öğrencisiyim.',
-      en: 'A statistics student learning to work with data, comfortable with teamwork and organising.',
+      tr: 'Veriyle çalışmayı öğrenen, ekip çalışmalarına ve organizasyona uyum sağlayan bir istatistik öğrencisiyim.',
+      en: 'I’m a Statistics student learning to work with data, with experience in teamwork and organising.',
     },
     bio: {
       tr: [
-        "Merhaba! Ben İsmail. Yıldız Teknik Üniversitesi’nde İstatistik okuyorum; 2026 bahar dönemini Erasmus+ ile Gdańsk Teknik Üniversitesi’nde geçirdim.",
-        "Eğitim hayatım boyunca kendimi geliştirebileceğim fırsatları değerlendirmeye önem verdim: lisede arkadaşlarımla İHA takımı kurduk, üniversitede kulüp yönetiminde ve sponsorluk görüşmelerinde yer aldım, yazın veri analizi stajı yaptım.",
-        "Ekip çalışmasına uyum sağlayan, öğrenmeye açık biriyim. Veri analizi araçlarında (R, SQL) hâlâ öğrenme aşamasındayım ve bunu saklamıyorum; her projede bir adım ileri gitmeye çalışıyorum.",
+        "Merhaba, ben İsmail. Yıldız Teknik Üniversitesi’nde İstatistik okuyorum ve 2026 bahar dönemini Erasmus+ programıyla Gdańsk Teknik Üniversitesi’nde geçirdim.",
+        "Eğitim hayatım boyunca kendimi geliştirebileceğim fırsatları değerlendirmeye çalıştım. Lisede arkadaşlarımla bir İHA takımı kurduk, üniversitede kulüp yönetiminde ve sponsorluk görüşmelerinde yer aldım, yazın ise veri analizi stajı yaptım.",
+        "Ekip çalışmalarına uyum sağlayan ve yeni şeyler öğrenmeye açık biriyim. R ve SQL konusunda henüz öğrenme aşamasındayım; projeler üzerinde çalışırken bilgilerimi geliştirmeye devam ediyorum.",
       ],
       en: [
-        "Hi! I’m İsmail. I study Statistics at Yıldız Technical University and spent the spring 2026 term at Gdańsk University of Technology through Erasmus+.",
-        "I try to take every chance to grow: in high school my friends and I founded a UAV team, at university I joined a club’s executive board and took part in sponsorship talks, and I spent a summer as a data analysis intern.",
-        "I work well in teams and I am open to learning. I am still a beginner with data analysis tools (R, SQL), and I would rather be upfront about that; I try to get one step better with every project.",
+        "Hi, I’m İsmail. I study Statistics at Yıldız Technical University and spent the spring 2026 semester at Gdańsk University of Technology through Erasmus+.",
+        "Throughout my studies, I’ve looked for opportunities to learn through experience. In high school, my friends and I founded a UAV team; at university, I joined a club’s executive board and took part in sponsorship discussions, and in the summer, I worked as a data analysis intern.",
+        "I work well with others and am open to learning new things. I’m still learning R and SQL, and I continue to build my knowledge through practical projects.",
       ],
     },
     location: { tr: 'İstanbul, Türkiye', en: 'Istanbul, Türkiye' },
@@ -68,8 +68,8 @@ export default {
       date: '2026-10-02',
       title: { tr: 'Ders Asistanı', en: 'Study Assistant' },
       summary: {
-        tr: 'Ders notlarını (PDF, fotoğraf, metin) yükleyince konu anlatımı çıkaran, soru soran, konu sonu testi ve bilgi kartları hazırlayan Android uygulaması. Günlük tekrar testleri, yanlışlar defteri, sınav geri sayımı ve çalışma serisi var. Sunucusu yok; tüm veri telefonda duruyor.',
-        en: 'An Android app that turns your lecture notes (PDF, photo, text) into explanations, questions, end-of-topic tests and flashcards. It has daily review tests, a mistake log, an exam countdown and study streaks. There is no server; all data stays on the phone.',
+        tr: 'Ders Asistanı, PDF, fotoğraf veya metin biçimindeki ders notlarını konu anlatımına ve çalışma materyallerine dönüştüren bir Android uygulaması. Konu testleri, bilgi kartları, günlük tekrarlar, yanlışlar defteri, sınav geri sayımı ve çalışma serisiyle öğrenme sürecini destekliyor. Veriler herhangi bir sunucuya gönderilmiyor, telefonda tutuluyor.',
+        en: 'Study Assistant is an Android app that turns lecture notes in PDF, photo or text format into explanations and study materials. It supports studying with topic tests, flashcards, daily reviews, a mistake log, an exam countdown and study streaks. All data stays on the phone rather than being stored on a server.',
       },
       tags: ['React Native', 'Expo', 'TypeScript', 'SQLite'],
       cover: './assets/projects/ders-asistani.webp',
@@ -87,8 +87,8 @@ export default {
       date: '2026-09-26',
       title: { tr: 'İstanbul Raylı Sistemler 2025 Analizi', en: 'Istanbul Rail Systems 2025 Analysis' },
       summary: {
-        tr: 'İBB açık verisiyle metro, tramvay, füniküler, teleferik ve Marmaray hatlarının 2025 kullanımını inceledim: hangi hatlar daha yoğun, kullanım yıl içinde nasıl değişiyor, olağan dışı günler hangileri ve hatların yolcu profilleri nasıl ayrışıyor.',
-        en: 'Using Istanbul Municipality open data I studied how metro, tram, funicular, cable car and Marmaray lines were used in 2025: which lines are busiest, how use changes over the year, which days are unusual and how passenger profiles differ by line.',
+        tr: 'Bu projede İBB açık verileriyle İstanbul’un raylı sistemlerinin 2025 yılındaki kullanımını analiz ettim. Hangi hatların daha yoğun olduğunu, yolcu sayılarının yıl içinde nasıl değiştiğini, olağan dışı günleri ve hatlar arasındaki yolcu profili farklılıklarını inceledim.',
+        en: 'In this project, I analysed how Istanbul’s rail systems were used in 2025, drawing on open data from Istanbul Metropolitan Municipality. I looked at which lines were busiest, how passenger numbers changed over the year, which days stood out as unusual and how passenger profiles varied between lines.',
       },
       findings: [
         { tr: 'İlk altı hat yolcunun %73’ünü taşıyor.', en: 'The top six lines carry 73% of riders.' },
@@ -132,8 +132,8 @@ export default {
       date: '2026-09-09',
       title: { tr: 'Rota — Alışkanlık Takibi', en: 'Rota — Habit Tracker' },
       summary: {
-        tr: 'Günlük ve haftalık alışkanlıkları takip eden Android uygulaması. Hedef belirli günlere ya da “haftada X kez” biçiminde kurulabiliyor; günde birden çok tekrar, seri takibi ve başarımlar var. Aylık ısı haritası, gün detayı ve analiz ekranları neyin işe yaradığını gösteriyor; haftalık değerlendirme ve alışkanlık önerileri Gemini ile geliyor. Hatırlatıcılar, ana ekran widget’ı ve veriyi dışa aktarıp geri yükleme de var.',
-        en: 'An Android app for tracking daily and weekly habits. A goal can be set for specific days or as “X times a week”, with several repetitions a day, streaks and achievements. A monthly heatmap, day detail and analytics screens show what is working; a weekly review and habit suggestions come from Gemini. It also has reminders, a home-screen widget and data export and restore.',
+        tr: 'Rota, alışkanlıklarını düzenli takip etmene ve zaman içindeki ilerlemeni görmene yardımcı olan bir Android uygulaması. Alışkanlıklarını belirli günlere veya haftalık tekrar hedeflerine göre planlayabilir, günlük birden fazla tamamlanmayı kaydedebilir ve serilerini takip edebilirsin. Isı haritası ve analiz ekranlarına ek olarak Gemini destekli haftalık değerlendirmeler ve alışkanlık önerileri, hatırlatıcılar, widget ve veri yedekleme özellikleri sunuyor.',
+        en: 'Rota is an Android app that helps users build a routine and track their progress over time. Habits can be scheduled for selected days or a set number of times per week, with support for multiple daily completions and streak tracking. Alongside heatmaps and analytics, it offers Gemini-powered weekly reviews and habit suggestions, reminders, a home-screen widget, and data backup and restore.',
       },
       tags: ['Android', 'Kotlin', 'Jetpack Compose', 'Material 3', 'Room', 'Glance Widget', 'Gemini API'],
       cover: './assets/projects/rota.webp',
@@ -151,8 +151,8 @@ export default {
       date: '2025-09-01',
       title: { tr: 'Deptron — TEKNOFEST', en: 'Deptron — TEKNOFEST' },
       summary: {
-        tr: 'Deptron, Yıldız Teknik Üniversitesi’nde otonom depo robotu geliştiren takım. Kuruluşunda yer aldım; ilk senemizde TEKNOFEST finalinde derece elde ettik.',
-        en: 'Deptron is a team at Yıldız Technical University building an autonomous warehouse robot. I helped found it; we placed in the TEKNOFEST finals in our first year.',
+        tr: 'Deptron, Yıldız Teknik Üniversitesi’nde otonom depo robotu üzerine çalışan bir takım. Takımın kuruluşunda yer aldım; ilk yılımızda TEKNOFEST finalinde derece kazandık.',
+        en: 'Deptron is a team at Yıldız Technical University working on an autonomous warehouse robot. I helped establish the team, and we earned a placement in the TEKNOFEST finals in our first year.',
       },
       tags: ['TEKNOFEST', { tr: 'Organizasyon', en: 'Organising' }, { tr: 'Takım', en: 'Team' }, { tr: 'Otonom robot', en: 'Autonomous robot' }],
       cover: './assets/projects/deptron.webp',

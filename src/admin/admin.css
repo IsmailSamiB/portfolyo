@@ -269,6 +269,11 @@ body.is-admin {
   line-height: 1.3;
 }
 
+/* Sayfanın koyu zemininde duran not (kart dışında): krem zemin için seçilmiş mürekkep rengi burada okunmuyordu */
+.adm-main > .adm-note {
+  color: var(--a-cream-dark);
+}
+
 /* ---------- Özet kartları ---------- */
 
 .adm-stats {
@@ -652,3 +657,24 @@ body.is-admin {
   box-shadow: none;
   opacity: 0.8;
 }
+
+/* ---- Başvuru linki aracı ---- */
+.adm-input { box-sizing: border-box; width: 100%; min-height: 40px; margin: 0; padding: 4px 10px; border: 3px solid var(--a-wood-dark); border-radius: 0; background: #fff; color: var(--a-ink); font-family: inherit; font-size: var(--fs-md); }
+.adm-share__row { display: grid; gap: 4px; margin-bottom: 10px; }
+.adm-share__check { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: var(--fs-md); }
+.adm-share__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.adm-share__state { font-size: var(--fs-md); }
+.adm-share__qrbox { overflow: auto; max-width: 100%; }
+.adm-share__qr { display: block; max-width: 100%; height: auto; image-rendering: pixelated; border: 3px solid var(--a-wood-dark); background: #fff; }
+
+/* ---- Etiket ayrıntısı (başvuru takibi) ---- */
+.adm-reftoggle { padding: 0; border: 0; background: none; color: var(--a-wood-dark); font: inherit; text-align: left; text-decoration: underline; cursor: pointer; overflow-wrap: anywhere; }
+.adm-reftoggle:hover { color: var(--a-orange-dark); }
+.adm-reftoggle[aria-expanded='true'] { font-weight: 700; }
+.adm-refrow > td { padding: 0; background: var(--a-cream); }
+.adm-ref { margin: 0; padding: 6px 10px; }
+.adm-ref__row { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 10px; padding: 3px 0; border-bottom: 2px solid var(--a-cream-dark); font-family: var(--a-data); font-size: var(--fs-sm); letter-spacing: 0.03em; }
+.adm-ref__row:last-child { border-bottom: 0; }
+.adm-ref dt { color: var(--a-ink-soft); }
+.adm-ref dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .adm-ref__row { grid-template-columns: 1fr; gap: 0; } }

@@ -1,8 +1,9 @@
 import './classic.css';
-import { on } from '../bridge.js';
-import { lang, pick } from '../i18n.js';
+import { emit, on } from '../bridge.js';
+import { lang, pick, PRINT_TITLE, documentTitle } from '../i18n.js';
 import content from '../content/content.js';
 import { sortedProjects, projectDate } from '../content/projects.js';
+import S from './strings.js';
 import { el, extLink, safeUrl, toParagraphs, reducedMotion } from './dom.js';
 
 // Klasik görünüm: content.js'teki içeriğin tek sayfalık, hızlı okunan CV hali.
@@ -12,7 +13,7 @@ const T = {
   skip: { tr: 'İçeriğe atla', en: 'Skip to content' },
   nav: { tr: 'Sayfa içi gezinme', en: 'On-page navigation' },
   numbers: { tr: 'Sayılarla', en: 'In numbers' },
-  about: { tr: 'Hakkımda', en: 'About' },
+  about: { tr: 'Hakkımda', en: 'About me' },
   highlights: { tr: 'Öne çıkanlar', en: 'Highlights' },
   projects: { tr: 'Projeler', en: 'Projects' },
   experience: { tr: 'Deneyim', en: 'Experience' },
@@ -25,7 +26,7 @@ const T = {
   contact: { tr: 'İletişim', en: 'Contact' },
   guestbook: { tr: 'Defter', en: 'Guestbook' },
   guestbookTitle: { tr: 'Ziyaretçi defteri', en: 'Guestbook' },
-  cta: { tr: 'Birlikte çalışalım', en: "Let's work together" },
+  cta: { tr: 'Birlikte çalışalım', en: "Let’s work together" },
   findings: { tr: 'Bulgular', en: 'Findings' },
   latest: { tr: 'En yeni', en: 'Latest' },
   now: { tr: 'şimdi', en: 'now' },
@@ -59,13 +60,75 @@ const T = {
     en: 'Gdańsk Tech logo: Wikimedia Commons / Asas077, CC BY-SA 3.0 (adapted to pixel art). The YTU logo is a registered trademark of Yıldız Technical University. The Deptron and AITT logos belong to their respective teams.',
   },
   privacy: {
-    tr: 'Tarayıcında rastgele bir ziyaretçi kimliği saklanır; hangi bölümlerin açıldığı, başvuru bağlantısındaki şirket etiketi ve tıkladığın dış bağlantının adresi gibi anonim kullanım bilgisi Google Firebase’de tutulur. Ad, e-posta ve IP adresi kaydedilmez. Tarayıcında "izleme" kapalıysa hiçbiri kaydedilmez. Deftere yazdığın ad ve mesaj, onaylanırsa yayınlanır.',
-    en: 'A random visitor ID is stored in your browser; anonymous usage info, such as which sections are opened, the company tag in an application link and the address of an external link you click, is kept in Google Firebase. No name, email or IP address is recorded. If your browser’s "do not track" is on, none of it is recorded. A name and message left in the guestbook are published if approved.',
+    tr: 'Tarayıcında rastgele bir ziyaretçi kimliği saklanır; hangi bölümlerin açıldığı, başvuru bağlantısındaki şirket etiketi ve tıkladığın dış bağlantının adresi gibi anonim kullanım bilgisi Google Firebase’de tutulur. Ad, e-posta ve IP adresi kaydedilmez. Tarayıcın “Takip edilmesin” (Do Not Track) istiyorsa hiçbiri kaydedilmez. Deftere yazdığın ad ve mesaj, onaylanırsa yayınlanır.',
+    en: 'A random visitor ID is stored in your browser; anonymous usage info, such as which sections are opened, the company tag in an application link and the address of an external link you click, is kept in Google Firebase. No name, email or IP address is recorded. If your browser sends “Do Not Track”, none of it is recorded. A name and message left in the guestbook are published if approved.',
   },
-
+  // Yalnızca baskıda (CV çıktısının en altında) görünür; adres: CV_SITE.
+  cvSite: { tr: 'Etkileşimli sürüm', en: 'Interactive version' },
 };
 
-const NAV = ['skills', 'projects', 'experience', 'education', 'activities', 'guestbook', 'contact'];
+// ---------- CV çıktısı (yalnızca baskı) ----------
+// Baskıda klasik görünümün yerine tek A4 sayfalık ayrı bir blok (.cl-cv) çıkar. Metinler content.js'ten
+// seçilerek alınır, yeni metin yazılmaz: uzun özetlerin yalnızca baştaki cümleleri basılır.
+const CV_SITE = 'https://ismailsamib.github.io/portfolyo';
+const CV_SUMMARY_MAX = 170; // proje özeti: yaklaşık iki satır (karakter)
+const CV_NOTE_MAX = 90; // aktivite notu: yaklaşık bir satır
+const CV_NOTES = false;
+
+// Nokta, cümle sonu sayılmayan kısaltmalar ("vb. Ankara" gibi).
+const CV_ABBREV = /(?:^|[\s(“"])(?:vb|vs|vd|bkz|örn|yak|dr|doç|prof|no|etc|approx|e\.g|i\.e|mr|mrs|ms|st)$/i;
+
+// Metni cümlelere böler: sınır, ardından boşluk ve büyük harf gelen . ! ? işaretidir.
+// Kısaltma, tek harf ("A. Yılmaz") ve bir-iki basamaklı sıra sayısından ("1. sınıf") sonraki nokta sınır sayılmaz.
+function cvSentences(text) {
+  const source = String(text || '').trim();
+  const parts = [];
+  const boundary = /[.!?](?=\s+[“"‘'(]?\p{Lu})/gu;
+  let from = 0;
+  let match;
+  while ((match = boundary.exec(source))) {
+    const head = source.slice(from, match.index);
+    if (match[0] === '.' && (CV_ABBREV.test(head) || /(?:^|[\s(])(?:\p{L}|\d{1,2})$/u.test(head))) continue;
+    parts.push(source.slice(from, match.index + 1).trim());
+    from = match.index + 1;
+  }
+  const rest = source.slice(from).trim();
+  if (rest) parts.push(rest);
+  return parts;
+}
+
+// Kısa metin: ilk cümle, ardından sınırı (max karakter) aşmadığı sürece sonraki tam cümleler.
+// İlk cümle tek başına sınırı aşıyorsa ilk noktalı virgül ya da iki noktadan kesilir ve nokta ile kapatılır.
+function cvShort(text, max, sentences = 1) {
+  const [first = '', ...others] = cvSentences(text);
+  if (first.length > max) {
+    const cut = first.search(/[;:]\s/);
+    return cut > 0 ? `${first.slice(0, cut)}.` : first;
+  }
+  let out = first;
+  for (const sentence of others.slice(0, Math.max(0, sentences - 1))) {
+    if (out.length + 1 + sentence.length > max) break;
+    out += ` ${sentence}`;
+  }
+  return out;
+}
+
+// Baskıda okunur yazılan kısa adres (şema, "www." ve sondaki "/" atılır; yüzde kodları çözülür).
+function shortUrl(href) {
+  const text = String(href || '')
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/\/$/, '');
+  try {
+    return decodeURI(text);
+  } catch {
+    return text; // çözülemezse kodlu hâli kalır
+  }
+}
+
+// Yazdırma sırasında belge başlığı (PDF dosya adı olur; ASCII, iki dilde aynı).
+const PRINT_TITLE_SAFETY = 120000; // afterprint gelmezse başlık bu süre sonunda geri döner
+
+const NAV =['skills', 'projects', 'experience', 'education', 'activities', 'guestbook', 'contact'];
 const ROOM_IMAGE = './assets/room/room.webp';
 // Yazı tipleri (Jersey 15 başlık, Jersey 10 gövde) siteden yüklenir (public/assets/fonts, @font-face: src/style.css).
 
@@ -240,17 +303,17 @@ function placeholder(project) {
 
 // ---------- Kaydırınca belirme: zamanlama (CSS'teki --cl-step ile aynı tutulur) ----------
 
-const SEQ_STEP = 60; // küçük öğeler arası (ms)
+const SEQ_STEP = 35; // küçük öğeler arası (ms)
 const SEQ_MAX = 5; // en çok 6 kademe (0..5); sonrakiler son kademeyle gelir
 const SEQ_MINI = 60; // proje kartındaki sayı kutularının başlangıç gecikmesi
-const RV_STEP = 70; // aynı anda görünen kardeş kartlar arası
-const RV_MAX = 6;
-const TL_STEP = 150; // aynı anda görünen zaman çizgisi kayıtları arası: önceki çizgi parçası inerken sıradaki nokta belirir
+const RV_STEP = 35; // aynı anda görünen kardeş kartlar arası
+const RV_MAX = 4;
+const TL_STEP = 40; // aynı anda görünen zaman çizgisi kayıtları arası: önceki çizgi parçası inerken sıradaki nokta belirir
 const TL_MAX = 3;
-const RV_SETTLE = 2200; // bu süre sonunda animasyon kuralları kalkar (is-done); en uzun dizi ~1,3 sn
-const RV_SWEEP = 1250; // güvenlik ağı turu: iki ardışık turda (1,25-2,5 sn) ekranda olup açılmamış öğe doğrudan gösterilir
-const RV_RATIO = 0.08; // gözlemci eşiği
-const RV_BOTTOM = 0.06; // görünüm alanının alttan sayılmayan payı
+const RV_SETTLE = 1500; // bu süre sonunda animasyon kuralları kalkar (is-done); en uzun dizi ~0,9 sn
+const RV_SWEEP = 400; // güvenlik ağı turu: iki ardışık turda (0,4-0,8 sn) ekranda olup açılmamış öğe doğrudan gösterilir
+const RV_RATIO = 0.01; // gözlemci eşiği
+const RV_BOTTOM = 0; // görünüm alanının alttan sayılmayan payı
 
 // ---------- Açılış (hero) ve "Devamını göster" ----------
 
@@ -258,9 +321,14 @@ const INTRO_TYPE = 860; // unvan yazımının toplam süresi (CSS'teki --hi-type
 const INTRO_SAFETY = 2400; // bu süre sonunda açılış sınıfları kalkar, unvan düz metne döner
 let introPlayed = false; // bu sayfa yüklemesinde bir kez oynar (oyundan dönüşte, dil değişiminde oynamaz)
 
-const MORE_MS = 280; // CSS'teki --cl-t-med ile aynı
+const MORE_MS = 220; // CSS'teki --cl-t-med ile aynı
 const MORE_SAFETY = 200;
 const MORE_EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+const FILTER_MAX = 8; // etiket süzgecindeki en çok çip ("Hepsi" hariç)
+const TARGET_MS = 2600; // bağlantıyla gelinen kartın vurgusu: kaydırma payı + 2 sn (CSS: cl-target 650 ms x 4)
+const TARGET_STILL = 2000; // hareket azaltmada: sabit çerçeve
+const TARGET_WAIT = 800; // yazı tipi bu sürede gelmezse beklenmeden kaydırılır
 
 // Harfleri (grafem) böler: Türkçe karakterler ve birleşik işaretler tek parça kalır.
 function graphemes(text) {
@@ -302,7 +370,7 @@ function formatCount(value, c) {
   return (frac ? int + c.dec + frac : int) + c.rest;
 }
 
-const COUNT_MS = 700; // kısa: ara değer uzun süre görünmesin
+const COUNT_MS = 400; // kısa: ara değer uzun süre görünmesin
 
 // delay: kartın belirme gecikmesi (ms); sayı o kadar bekleyip saymaya başlar.
 // rAF durursa (gizli sekme) zamanlayıcı, görünürlük değişimi ya da settle() son değeri yazar:
@@ -503,6 +571,15 @@ function createLightbox() {
     return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${scale.toFixed(4)})`;
   }
 
+  // Ön yükleme 150 ms'yi aşarsa çerçeveye is-loading eklenir (hızlı geçişlerde hiç görünmez)
+  let loadTimer = 0;
+  function setBusy(on) {
+    clearTimeout(loadTimer);
+    loadTimer = 0;
+    if (on) loadTimer = setTimeout(() => frame.classList.add('is-loading'), 150);
+    else frame.classList.remove('is-loading');
+  }
+
   async function step(d) {
     if (state !== 'open' || items.length < 2) return;
     dir = d < 0 ? -1 : 1;
@@ -513,7 +590,9 @@ function createLightbox() {
     const t = token;
     while (target !== index) {
       const to = target;
+      setBusy(true);
       const size = await lbPreload(safeUrl(items[to].src));
+      setBusy(false);
       if (t !== token || state !== 'open') return;
       const slide = !reducedMotion();
       if (slide) {
@@ -610,6 +689,7 @@ function createLightbox() {
     const idx = (((start || 0) % items.length) + items.length) % items.length;
     const t = (token += 1);
     navigating = false;
+    setBusy(false);
     if (state === 'open') {
       // Zaten açık: animasyonsuz değiştir.
       const size = await lbPreload(safeUrl(items[idx].src));
@@ -670,6 +750,7 @@ function createLightbox() {
     token += 1;
     state = 'closed';
     navigating = false;
+    setBusy(false);
     revealed = false;
     lbClear(overlay, frame);
     overlay.hidden = true;
@@ -690,6 +771,7 @@ function createLightbox() {
     token += 1;
     const t = token;
     navigating = false;
+    setBusy(false);
     lbClear(overlay, frame);
     if (!revealed || reducedMotion()) {
       finishClose();
@@ -1059,7 +1141,11 @@ function build(ctx) {
   function projectCard(project, i) {
     const title = pick(project.title);
     const gallery = (project.gallery || []).filter((item) => item && item.src);
-    const openAt = (start, from) => ctx.lightbox.open(gallery, start, title, from);
+    // project:open: proje açılışı ölçümü (kapak/galeri, "Devamını göster", doğrudan bağlantı)
+    const openAt = (start, from) => {
+      emit('project:open', { id: project.id });
+      ctx.lightbox.open(gallery, start, title, from);
+    };
 
     let media = placeholder(project);
     if (project.cover) {
@@ -1133,14 +1219,39 @@ function build(ctx) {
         text: pick(T.more),
       });
       more.addEventListener('click', createExpander(ctx, summary, finds || null, more));
+      // Yalnızca açılırken (üstteki dinleyici aria-expanded'ı önce günceller)
+      more.addEventListener('click', () => {
+        if (more.getAttribute('aria-expanded') === 'true') emit('project:open', { id: project.id });
+      });
       ctx.clamps.push({ summary, more, hasFinds: Boolean(finds) });
     }
     const noteId = (at) => `cl-note-${project.id}-${at}`;
 
-    return rv(
+    // "Bağlantıyı kopyala": bu karta doğrudan açılan adres (?classic&proje=<id>). Durum metni e-posta kopyalamadaki gibi.
+    const linkStatus = el('span', { class: 'cl-link-status', role: 'status', 'aria-live': 'polite' });
+    let linkTimer = 0;
+    const copyLinkBtn = el('button', {
+      type: 'button',
+      class: 'cl-btn cl-btn--quiet',
+      'aria-label': `${pick(S.projects.copyLink)}: ${title}`,
+      text: pick(S.projects.copyLink),
+      onclick: () => {
+        const url = `${window.location.origin}${window.location.pathname}?classic&proje=${encodeURIComponent(project.id)}`;
+        copyText(url).then((ok) => {
+          linkStatus.textContent = pick(ok ? S.contact.copied : T.copyFailed);
+          linkStatus.classList.toggle('is-error', !ok);
+          clearTimeout(linkTimer);
+          linkTimer = setTimeout(() => {
+            linkStatus.textContent = '';
+          }, 2200);
+        });
+      },
+    });
+
+    const card = rv(
       el(
         'article',
-        { class: `cl-card${i === 0 ? ' cl-card--feat' : ''}` },
+        { id: `cl-p-${project.id}`, class: `cl-card${i === 0 ? ' cl-card--feat' : ''}` },
         el(
           'figure',
           { class: 'cl-cover' },
@@ -1157,7 +1268,7 @@ function build(ctx) {
         el(
           'div',
           { class: 'cl-card-body' },
-          el('h3', { class: 'cl-card-title', text: title }),
+          el('h3', { class: 'cl-card-title', tabindex: '-1', text: title }),
           summary,
           more,
           finds,
@@ -1166,8 +1277,8 @@ function build(ctx) {
               el(
                 'ul',
                 { class: 'cl-mini' },
-                projectStats.map((stat, at) =>
-                  el('li', null, counter(stat.value, 'cl-mini-v', SEQ_MINI + Math.min(at, SEQ_MAX) * SEQ_STEP), el('span', { class: 'cl-mini-l', text: pick(stat.label) })),
+                projectStats.map((stat) =>
+                  el('li', null, el('strong', { class: 'cl-mini-v', text: pick(stat.value) }), el('span', { class: 'cl-mini-l', text: pick(stat.label) })),
                 ),
               ),
               SEQ_MINI,
@@ -1197,33 +1308,149 @@ function build(ctx) {
                 );
               }),
             ),
-          tags.length > 0 && seq(el('ul', { class: 'cl-tags' }, tags.map((tag) => el('li', { text: pick(tag) }))), 120),
-          linkItems.length > 0 &&
-            el(
-              'div',
-              { class: 'cl-linkbox' },
-              seq(
-                el(
-                  'ul',
-                  { class: 'cl-links' },
-                  linkItems.map((item, at) => {
-                    const link = extLink(item.url, item.label, `cl-btn${item === accent ? ' cl-btn--accent' : ''}`);
-                    if (item.note) link.setAttribute('aria-describedby', noteId(at));
-                    return el('li', null, link);
-                  }),
-                ),
-                180,
+          tags.length > 0 && seq(el('ul', { class: 'cl-tags' }, tags.map(tagItem)), 120),
+          el(
+            'div',
+            { class: 'cl-linkbox' },
+            seq(
+              el(
+                'ul',
+                { class: 'cl-links' },
+                linkItems.map((item, at) => {
+                  const link = extLink(item.url, item.label, `cl-btn${item === accent ? ' cl-btn--accent' : ''}`);
+                  if (item.note) link.setAttribute('aria-describedby', noteId(at));
+                  return el('li', null, link);
+                }),
+                el('li', { class: 'cl-links-copy' }, copyLinkBtn, linkStatus),
               ),
-              // Notlar düğme satırının altında, tam genişlikte.
-              linkItems.map((item, at) => item.note && el('p', { id: noteId(at), class: 'cl-link-note', text: item.note })),
+              180,
             ),
+            // Notlar düğme satırının altında, tam genişlikte.
+            linkItems.map((item, at) => item.note && el('p', { id: noteId(at), class: 'cl-link-note', text: item.note })),
+          ),
         ),
       ),
     );
+    cards.push({ node: card, keys: new Set(tags.map(tagKey)) });
+    return card;
   }
 
   const projects = sortedProjects();
-  const projectsSection = projects.length > 0 && section('projects', pick(T.projects), el('div', { class: 'cl-projects' }, projects.map(projectCard)));
+
+  // --- Etiket süzgeci (yalnızca klasik görünüm) ---
+  // Çipler içerikten çıkar: en az iki projede geçen etiketler; ikiden az çıkarsa her projenin ilk etiketi de eklenir
+  // (en çok FILTER_MAX). Etiket { tr, en } ya da düz dizgi olabilir; eşleştirme dilden bağımsız anahtarla yapılır.
+  function tagKey(tag) {
+    return String((tag && typeof tag === 'object' ? (tag.tr ?? tag.en) : tag) ?? '');
+  }
+
+  function collectFilterTags(list) {
+    const count = new Map();
+    const first = new Map(); // anahtar -> etiket (ilk görülen)
+    for (const project of list) {
+      const own = new Set();
+      for (const tag of project.tags || []) {
+        const key = tagKey(tag);
+        if (!key || own.has(key)) continue;
+        own.add(key);
+        count.set(key, (count.get(key) || 0) + 1);
+        if (!first.has(key)) first.set(key, tag);
+      }
+    }
+    const picked = new Map();
+    for (const [key, n] of count) {
+      if (n >= 2 && picked.size < FILTER_MAX) picked.set(key, first.get(key));
+    }
+    if (picked.size < 2) {
+      for (const project of list) {
+        const key = tagKey((project.tags || [])[0]);
+        if (key && !picked.has(key) && picked.size < FILTER_MAX) picked.set(key, first.get(key));
+      }
+    }
+    return picked;
+  }
+
+  const filterTags = collectFilterTags(projects); // anahtar -> etiket
+  const cards = []; // { node, keys }
+  const filterButtons = []; // { button, key }: süzgeç satırındaki ve kartlardaki çipler
+  const rowChips = new Map(); // anahtar ('' = Hepsi) -> süzgeç satırındaki düğme
+  const filterCount = el('p', { class: 'cl-filter-count', role: 'status', 'aria-live': 'polite' });
+
+  // Tek seçim; seçili çipe yeniden basmak "Hepsi"ne döner. Seçim ctx.filter'da tutulur (dil değişince korunur).
+  // keep: basılan düğme. Üstündeki kartlar gizlenip sayfa kayarsa düğme ekranda aynı yerde kalır.
+  function applyFilter(key, keep) {
+    const next = filterTags.has(key) ? key : '';
+    const before = keep ? keep.getBoundingClientRect().top : 0;
+    ctx.filter.key = next;
+    let shown = 0;
+    for (const { node, keys } of cards) {
+      const hide = Boolean(next) && !keys.has(next);
+      node.hidden = hide;
+      if (hide) continue;
+      shown += 1;
+      // Yeniden görünen kart belirme sırasını beklemez; yarım kalmış belirme animasyonu baştan oynamaz.
+      if (ctx.revealIn) ctx.revealIn(node);
+      if (node.classList.contains('is-in')) node.classList.add('is-done');
+    }
+    for (const { button, key: own } of filterButtons) button.setAttribute('aria-pressed', String(own === next));
+    filterCount.textContent = shown === 1 ? pick(S.projects.showingOne) : pick(S.projects.showing).replace('{n}', String(shown));
+    if (ctx.fitClamps) ctx.fitClamps(); // gizliyken ölçülemeyen özetler
+    const focused = document.activeElement;
+    const chip = rowChips.get(next);
+    if (chip && focused instanceof Element && focused.closest('.cl-card[hidden]')) {
+      // Odak gizlenen bir kartta kaldı: süzgeç satırındaki seçili çipe taşınır.
+      chip.focus({ preventScroll: true });
+    } else if (keep && keep.isConnected) {
+      const shift = keep.getBoundingClientRect().top - before;
+      if (Math.abs(shift) > 1) window.scrollBy({ top: shift, behavior: 'instant' });
+    }
+  }
+  ctx.applyFilter = applyFilter;
+
+  const toggleFilter = (key) => (event) => applyFilter(ctx.filter.key === key ? '' : key, event.currentTarget);
+
+  function filterChip(key, label) {
+    const button = el('button', { type: 'button', class: 'cl-chip', 'aria-pressed': 'false', text: label, onclick: toggleFilter(key) });
+    filterButtons.push({ button, key });
+    rowChips.set(key, button);
+    return button;
+  }
+
+  // Kart içindeki etiket: süzgeçte karşılığı varsa aynı süzgeci seçen düğme, yoksa düz metin.
+  function tagItem(tag) {
+    const key = tagKey(tag);
+    const text = pick(tag);
+    if (!filterTags.has(key)) return el('li', { text });
+    const button = el('button', {
+      type: 'button',
+      class: 'cl-tag-btn',
+      'aria-pressed': 'false',
+      'aria-label': `${pick(S.projects.filterLabel)}: ${text}`,
+      text,
+      onclick: toggleFilter(key),
+    });
+    filterButtons.push({ button, key });
+    return el('li', { class: 'cl-tags-btn' }, button);
+  }
+
+  const filterRow =
+    filterTags.size > 0 &&
+    rv(
+      el(
+        'div',
+        { class: 'cl-filter' },
+        el(
+          'div',
+          { class: 'cl-filter-chips', role: 'group', 'aria-label': pick(S.projects.filterLabel) },
+          filterChip('', pick(S.projects.filterAll)),
+          [...filterTags].map(([key, tag]) => filterChip(key, pick(tag))),
+        ),
+        filterCount,
+      ),
+    );
+  const projectsSection =
+    projects.length > 0 && section('projects', pick(T.projects), [filterRow, el('div', { class: 'cl-projects' }, projects.map(projectCard))]);
+  applyFilter(ctx.filter.key);
 
   // --- Deneyim / Eğitim ---
   // Pixel logo; yoksa ya da yüklenemezse kutu hiç yer kaplamaz.
@@ -1234,6 +1461,7 @@ function build(ctx) {
       alt: String(pick(item.org) || pick(item.title) || ''),
       width: 64,
       height: 64,
+      loading: 'lazy',
       decoding: 'async',
     });
     const box = el('span', { class: 'cl-logo' }, img);
@@ -1473,7 +1701,164 @@ function build(ctx) {
     hasLogos && el('p', { class: 'cl-wrap cl-foot-note', text: pick(T.logoCredit) }),
   );
 
-  return el('div', { class: 'cl' }, bar, hero, statsSection, aboutSection, skillsSection, projectsSection, pathBlock, activitiesSection, guestbookSection, contactSection, footer);
+  // --- CV çıktısı: tek A4 sayfa ---
+  // Yalnızca baskıda görünür (classic.css: .cl-cv); ekranda display: none olduğu için erişilebilirlik ağacında da yoktur.
+  // DOM sırası okuma sırasıdır (başvuru sistemleri metni düz okur): kimlik, ana sütun, yan sütun, site adresi.
+  // İçerik seçilerek kısaltılır: Hakkımda'nın ilk paragrafı, proje özetlerinin baştaki cümleleri (cvShort),
+  // proje başına tek bağlantı (kaynak kod, yoksa demo). Bulgular, sayı kutuları, galeri ve lejant basılmaz.
+  function cvSection(title, body) {
+    return el('section', { class: 'cl-cv-sec' }, el('h2', { class: 'cl-cv-h', text: title }), body);
+  }
+
+  // Kayıt: başlık (+ kurum) solda, tarih sağda; altında isteğe bağlı satırlar.
+  function cvItem(title, org, period, ...rest) {
+    return el(
+      'li',
+      { class: 'cl-cv-item' },
+      el(
+        'div',
+        { class: 'cl-cv-row' },
+        el('div', { class: 'cl-cv-what' }, el('h3', { class: 'cl-cv-t', text: title }), org && el('p', { class: 'cl-cv-org', text: org })),
+        period && el('p', { class: 'cl-cv-when', text: period }),
+      ),
+      rest,
+    );
+  }
+
+  // Adres dar sütunda ilk ‘/’ işaretinden sonra bölünebilsin (alan adının ortasından değil)
+  function cvSiteParts() {
+    const [host, ...rest] = shortUrl(CV_SITE).split('/');
+    return [`${host}/`, document.createElement('wbr'), rest.join('/')];
+  }
+
+  function cvLink(url, text) {
+    return el('a', { href: safeUrl(url), text: text || shortUrl(url) });
+  }
+
+  // Seviye: beş kare; dolu ve boş kare kenarlık kalınlığıyla ayrışır (renk gerekmez), metin karşılığı aria-label'da.
+  function cvLevel(level) {
+    const value = clampLevel(level);
+    return el(
+      'span',
+      { class: 'cl-cv-lvl', role: 'img', 'aria-label': `${pick(T.level)} ${value}/5` },
+      [0, 1, 2, 3, 4].map((i) => el('span', { class: i < value ? 'is-on' : null })),
+    );
+  }
+
+  function buildCv() {
+    const bio = toParagraphs(p.bio, pick);
+    const cvProjects = projects.map((project) => {
+      const links = project.links || {};
+      const url = links.source ? pick(links.source) : links.demo ? pick(links.demo) : '';
+      const tags = (project.tags || []).map((tag) => pick(tag)).filter(Boolean);
+      return cvItem(
+        pick(project.title),
+        null,
+        projectDate(project.date, language),
+        el('p', { class: 'cl-cv-note', text: cvShort(pick(project.summary), CV_SUMMARY_MAX) }),
+        tags.length > 0 && el('p', { class: 'cl-cv-meta', text: tags.join(' · ') }),
+        url && el('p', { class: 'cl-cv-meta' }, `${pick(links.source ? T.source : T.demo)}: `, cvLink(url)),
+      );
+    });
+    const cvActivities = activities.map((item) => {
+      const roles = Array.isArray(item.roles) ? item.roles.filter(Boolean) : [];
+      return cvItem(
+        pick(item.title),
+        item.org && pick(item.org),
+        pick(item.period),
+        CV_NOTES && item.note && el('p', { class: 'cl-cv-note', text: cvShort(pick(item.note), CV_NOTE_MAX) }),
+        roles.length > 0 &&
+          el(
+            'ul',
+            { class: 'cl-cv-roles' },
+            roles.map((role) => el('li', null, el('span', { text: pick(role.title) }), el('span', { class: 'cl-cv-when', text: pick(role.period) }))),
+          ),
+      );
+    });
+    const full = (item) => cvItem(pick(item.title), item.org && pick(item.org), pick(item.period), item.note && el('p', { class: 'cl-cv-note', text: pick(item.note) }));
+
+    return el(
+      'div',
+      { class: 'cl-cv' },
+      el(
+        'header',
+        { class: 'cl-cv-head' },
+        el(
+          'div',
+          { class: 'cl-cv-id' },
+          el('p', { class: 'cl-cv-name', role: 'heading', 'aria-level': '1', text: p.name }),
+          el('p', { class: 'cl-cv-title', text: pick(p.title) }),
+          el(
+            'ul',
+            { class: 'cl-cv-contact' },
+            c.email && el('li', null, cvLink(`mailto:${c.email}`, c.email)),
+            contactLinks.filter((link) => link && link.url).map((link) => el('li', null, cvLink(link.url))),
+            p.location && el('li', { text: pick(p.location) }),
+          ),
+        ),
+        p.photo && el('img', { class: 'cl-cv-photo', src: safeUrl(p.photo), alt: `${p.name || ''} ${pick(T.photoAlt)}`.trim(), width: 240, height: 240 }),
+      ),
+      el(
+        'div',
+        { class: 'cl-cv-cols' },
+        // Hakkımda DOM'da ilk sırada (okuma sırası); ızgarada dar sütunun başına yerleşir.
+        bio.length > 0 && el('div', { class: 'cl-cv-about' }, cvSection(pick(T.about), el('p', { class: 'cl-cv-note', text: bio[0] }))),
+        el(
+          'div',
+          { class: 'cl-cv-main' },
+          experience.length > 0 && cvSection(pick(T.experience), el('ul', { class: 'cl-cv-list' }, experience.map(full))),
+          cvProjects.length > 0 && cvSection(pick(T.projects), el('ul', { class: 'cl-cv-list' }, cvProjects)),
+          cvActivities.length > 0 && cvSection(pick(T.activitiesTitle), el('ul', { class: 'cl-cv-list' }, cvActivities)),
+        ),
+        el(
+          'div',
+          { class: 'cl-cv-side' },
+          education.length > 0 && cvSection(pick(T.education), el('ul', { class: 'cl-cv-list' }, education.map(full))),
+          skills.length > 0 &&
+            cvSection(
+              pick(T.skills),
+              skills.map((group) => [
+                el('h3', { class: 'cl-cv-group', text: pick(group.group) }),
+                el(
+                  'ul',
+                  { class: 'cl-cv-skills' },
+                  (group.items || []).map((item) => el('li', null, el('span', { text: pick(item.name) }), cvLevel(item.level))),
+                ),
+              ]),
+            ),
+          languageGroups.map((group) =>
+            cvSection(pick(group.group) || pick(T.languages), el('ul', { class: 'cl-cv-plain' }, (group.items || []).map((item) => el('li', { text: pick(item.name) })))),
+          ),
+          certificates.length > 0 && cvSection(pick(T.certificates), el('ul', { class: 'cl-cv-plain' }, certificates.map((item) => el('li', { text: pick(item) })))),
+          // Site adresi + QR: dar sütunun altında (dikey yer kaplamaz); görsel yalnızca baskıda yüklenir
+          el(
+            'div',
+            { class: 'cl-cv-foot' },
+            el('img', { class: 'cl-cv-qr', src: './assets/ui/qr-site.svg', alt: '', width: 68, height: 68, loading: 'lazy' }),
+            // Adres dar sütunda ‘/’ işaretinden bölünsün (alan adı ortasından değil)
+            el('p', null, `${pick(T.cvSite)}: `, el('a', { href: safeUrl(CV_SITE) }, ...cvSiteParts())),
+          ),
+        ),
+      ),
+    );
+  }
+
+  return el(
+    'div',
+    { class: 'cl' },
+    bar,
+    hero,
+    statsSection,
+    aboutSection,
+    skillsSection,
+    projectsSection,
+    pathBlock,
+    activitiesSection,
+    guestbookSection,
+    contactSection,
+    footer,
+    buildCv(),
+  );
 }
 
 export function createClassic(root) {
@@ -1492,6 +1877,7 @@ export function createClassic(root) {
   });
   document.body.prepend(skipLink);
   let active = false;
+  const filterState = { key: '' }; // seçili etiket süzgeci: yeniden çizimde (dil değişimi) korunur
   let currentNav = null;
   let preferredNav = null; // son tıklanan bağlantı: aynı hizadaki bölümlerde o vurgulanır
   let sizeObserver = null;
@@ -1587,9 +1973,44 @@ export function createClassic(root) {
   }
 
   // Galeri küçük resimleri oyun modunda indirilmez; klasik görünüm açılınca hepsi yüklenir.
+  // Küçük resimler, galerisi ekrana yaklaşınca istenir (açılışta 12 istek birden gitmesin). Şerit yatay
+  // kaydığı için tek tek değil galeri bazında gözlenir: şerit görününce içindeki bütün küçük resimler yüklenir.
+  let thumbObserver = null;
+  function fillGallery(gallery) {
+    for (const img of gallery.querySelectorAll('img[data-thumb]')) {
+      const src = img.dataset.thumb;
+      delete img.dataset.thumb;
+      img.src = src;
+    }
+  }
   function loadThumbs() {
     if (!ctx) return;
-    for (const { img, src } of ctx.thumbs.splice(0)) img.src = src;
+    const list = ctx.thumbs.splice(0);
+    if (typeof IntersectionObserver !== 'function') {
+      for (const { img, src } of list) img.src = src;
+      return;
+    }
+    if (!thumbObserver) {
+      thumbObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            thumbObserver.unobserve(entry.target);
+            fillGallery(entry.target);
+          }
+        },
+        { rootMargin: '600px 0px' },
+      );
+    }
+    for (const { img, src } of list) {
+      const gallery = img.closest('.cl-gallery');
+      if (!gallery) {
+        img.src = src;
+        continue;
+      }
+      img.dataset.thumb = src;
+      thumbObserver.observe(gallery);
+    }
   }
 
   // ---------- Açılış animasyonu (hero) ----------
@@ -1710,6 +2131,8 @@ export function createClassic(root) {
       io: null,
       lightbox,
       goTo,
+      filter: filterState,
+      applyFilter: null,
     };
     const context = ctx;
     root.replaceChildren(build(context));
@@ -1787,6 +2210,59 @@ export function createClassic(root) {
     }
   }
 
+  // ---------- Projeye doğrudan bağlantı (?proje=<id>) ----------
+  // Kart görünür yapılır (süzgeç gizliyorsa süzgeç sıfırlanır, belirme beklenmez), karta kaydırılır, kısa süre vurgulanır
+  // ve odak kart başlığına verilir. Ölçüler otursun diye iki kare ve yazı tipleri (en çok TARGET_WAIT) beklenir.
+  let targetTimer = 0;
+  function showProject(id) {
+    const frames = new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const fonts = document.fonts && document.fonts.ready ? document.fonts.ready.catch(() => {}) : Promise.resolve();
+    Promise.all([frames, Promise.race([fonts, new Promise((resolve) => setTimeout(resolve, TARGET_WAIT))])]).then(() => {
+      const card = document.getElementById(`cl-p-${id}`);
+      if (!active || !ctx || !card || !root.contains(card)) return;
+      if (card.hidden && ctx.applyFilter) ctx.applyFilter('');
+      if (ctx.revealIn) ctx.revealIn(card);
+      measure();
+      const still = reducedMotion();
+      card.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      const title = card.querySelector('.cl-card-title');
+      if (title) title.focus({ preventScroll: true });
+      emit('project:open', { id });
+      card.classList.add('is-target');
+      clearTimeout(targetTimer);
+      targetTimer = setTimeout(() => card.classList.remove('is-target'), still ? TARGET_STILL : TARGET_MS);
+    });
+  }
+
+  // ---------- Yazdırma ----------
+  // Baskıdan önce yarım kalan her şey son hâline getirilir: açılış daktilosu, sayan sayaçlar, açılıp kapanan özetler.
+  // (Baskıda yalnızca .cl-cv bloğu görünür; ekran, yazdırma penceresi kapanınca yarım bir geçişte kalmasın.)
+  function preparePrint() {
+    finishIntro();
+    if (!ctx) return;
+    for (const finish of [...ctx.moves]) finish();
+    for (const finish of [...ctx.running.values()]) finish();
+  }
+
+  let savedTitle = null;
+  let titleTimer = 0;
+  function restoreTitle() {
+    clearTimeout(titleTimer);
+    if (savedTitle === null) return;
+    if (document.title === PRINT_TITLE) document.title = documentTitle(); // yazdırırken dil değişmiş olabilir
+    savedTitle = null;
+  }
+  // Düğmeyle de Ctrl+P ile de: PDF dosya adı düzgün çıksın diye başlık geçici olarak değişir.
+  window.addEventListener('beforeprint', () => {
+    if (document.body.classList.contains('is-admin')) return; // yönetici paneli CV basmaz
+    preparePrint();
+    if (savedTitle === null) savedTitle = document.title;
+    document.title = PRINT_TITLE;
+    clearTimeout(titleTimer);
+    titleTimer = setTimeout(restoreTitle, PRINT_TITLE_SAFETY);
+  });
+  window.addEventListener('afterprint', restoreTitle);
+
   // Gizliyken de içerik DOM'da dursun (arama motorları için).
   render(true);
   // Yazı tipi gelince satır sayıları değişir; ölçümler yenilenir.
@@ -1799,6 +2275,8 @@ export function createClassic(root) {
   on('lang:changed', () => render(!active));
 
   return {
+    preparePrint,
+    showProject,
     setActive(next) {
       active = Boolean(next);
       root.hidden = !active;

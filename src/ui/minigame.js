@@ -1,6 +1,6 @@
 import './minigame.css';
 import { emit, on } from '../bridge.js';
-import { pick } from '../i18n.js';
+import { lang, pick } from '../i18n.js';
 import content from '../content/content.js';
 import { el, extLink, reducedMotion, blurIfPointer } from './dom.js';
 import { setLock } from './lock.js';
@@ -26,8 +26,8 @@ const T = {
   close: { tr: 'Kapat', en: 'Close' },
   insert: { tr: 'JETON AT', en: 'INSERT COIN' },
   intro: {
-    tr: '30 saniyede hatalı hücrelere tıkla: boş değer, yazım hatası, saçma sayı, yanlış hat kodu. Yinelenen satırda herhangi bir hücre yeter. Temiz hücreye tıklarsan puan kaybedersin!',
-    en: 'Click the bad cells in 30 seconds: empty values, typos, absurd numbers, wrong line codes. For a duplicate row, any cell works. Click a clean cell and you lose points!',
+    tr: '30 saniyede hatalı hücreleri seç: boş değer, yazım hatası, saçma sayı, yanlış hat kodu. Yinelenen satırda herhangi bir hücre yeter. Temiz hücreyi seçersen puan kaybedersin!',
+    en: 'Select the bad cells in 30 seconds: empty values, typos, absurd numbers, wrong line codes. For a duplicate row, any cell works. Select a clean cell and you lose points!',
   },
   keys: { tr: 'Klavye: ok tuşları + Enter/Boşluk · Esc: kapat', en: 'Keyboard: arrows + Enter/Space · Esc: close' },
   start: { tr: 'BAŞLA', en: 'START' },
@@ -38,7 +38,7 @@ const T = {
   again: { tr: 'Tekrar oyna', en: 'Play again' },
   source: { tr: 'Gerçek veride de böyle yaptım → Raylı sistemler projesi', en: 'I did this on real data too → Rail systems project' },
   contact: { tr: 'Benimle iletişime geç', en: 'Get in touch' },
-  hint: { tr: 'Hatalı hücreyi bul ve tıkla.', en: 'Find the bad cell and click it.' },
+  hint: { tr: 'Hatalı hücreyi bul ve seç.', en: 'Find the bad cell and select it.' },
   board: { tr: 'Yolcu verisi tablosu', en: 'Passenger data table' },
   cols: {
     tr: ['hat', 'istasyon', 'yaş', 'yolcu'],
@@ -49,8 +49,8 @@ const T = {
   high: { tr: 'Veri tertemiz!', en: 'Squeaky-clean data!' },
   top: { tr: 'EN İYİ 10', en: 'TOP 10' },
   loading: { tr: '…', en: '…' },
-  localNote: { tr: 'Çevrimdışı: yerel tablo', en: 'Offline: local table' },
-  enterName: { tr: 'Rumuzunu gir (3 karakter)', en: 'Enter your tag (3 chars)' },
+  localNote: { tr: 'Çevrimdışı: yalnız bu cihazdaki skorlar', en: 'Offline: scores from this device only' },
+  enterName: { tr: 'Tablo için 3 karakterlik rumuz seç (herkese görünür)', en: 'Pick a 3-character tag for the leaderboard (public)' },
   save: { tr: 'KAYDET', en: 'SAVE' },
   saving: { tr: 'Kaydediliyor…', en: 'Saving…' },
   saved: { tr: 'Skor kaydedildi!', en: 'Score saved!' },
@@ -369,7 +369,9 @@ export function initMinigame() {
     let local = false;
     try {
       if (forceLocal || !store.scores || typeof store.scores.top !== 'function') throw new Error('local');
-      rows = normalizeRows(await store.scores.top(TOP_N));
+      const got = await store.scores.top(TOP_N);
+      rows = normalizeRows(got);
+      local = Boolean(got && got.local); // sunucu okunamadı, yerel yedek
     } catch {
       rows = readLocalScores();
       local = true;
@@ -470,6 +472,8 @@ export function initMinigame() {
     const mine = lastResult;
     const score = mine.score;
     writeNick(name);
+    // Klavyeyle kaydedildiyse (odak panelde) KAYDET düğmesi kalkınca odak boşa düşmesin
+    const hadFocus = body.contains(document.activeElement);
     entry.phase = 'saving';
     paintEntry();
     let res = { ok: false, reason: 'offline' };
@@ -484,6 +488,7 @@ export function initMinigame() {
     entry.note = ok ? '' : pick(T.savedLocal);
     entry.phase = 'saved';
     paintEntry();
+    if (hadFocus && !body.contains(document.activeElement)) focusFirst();
     loadBoard({ name, score }, !ok);
   }
 
@@ -540,7 +545,7 @@ export function initMinigame() {
           el(
             'div',
             { class: 'mg-stats' },
-            el('span', { text: `${pick(T.accuracy)}: %${r.accuracy}` }),
+            el('span', { text: `${pick(T.accuracy)}: ${lang() === 'tr' ? `%${r.accuracy}` : `${r.accuracy}%`}` }),
             el('span', { text: `${pick(T.best)}: ${r.best}` }),
           ),
           r.isNew && el('p', { class: 'mg-new', text: pick(T.newBest) }),
@@ -855,6 +860,7 @@ export function initMinigame() {
     if (k.length === 1 && /[a-z0-9]/i.test(k)) {
       event.preventDefault();
       entry.chars[entry.idx] = k.toUpperCase();
+      entry.typed = true;
       entry.idx = Math.min(NICK_LEN - 1, entry.idx + 1);
       updateSlots();
       return true;
@@ -877,14 +883,38 @@ export function initMinigame() {
       return true;
     }
     if (k === 'Enter') {
-      // Odaktaki düğme varsa kendi tıklamasını yapsın
+      // Odaktaki düğme varsa kendi tıklamasını yapsın; rumuz yazıldıysa Enter her zaman kaydeder
+      // (odak varsayılan olarak "Tekrar oyna"da durur: yazıp Enter'a basınca skor kaybolmasın).
       const a = document.activeElement;
-      if (a instanceof HTMLElement && a.tagName === 'BUTTON' && body.contains(a)) return false;
+      if (!entry.typed && a instanceof HTMLElement && a.tagName === 'BUTTON' && body.contains(a)) return false;
       event.preventDefault();
       if (!event.repeat) saveScore();
       return true;
     }
     return false;
+  }
+
+  // Odak pencerenin (aria-modal) dışına, arkadaki HUD düğmelerine kaçmasın.
+  function trapTab(event) {
+    const list = [...win.querySelectorAll('a[href], button:not([disabled])')].filter((n) => n.tabIndex >= 0 && n.getClientRects().length > 0);
+    if (!list.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = list[0];
+    const last = list[list.length - 1];
+    const active = document.activeElement;
+    if (!list.includes(active)) {
+      // odak tabloda/gövdede (tabindex=-1) ya da dışarıda: yöne göre ilk/son düğmeye
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function onKeyDown(event) {
@@ -894,6 +924,10 @@ export function initMinigame() {
     if (event.key === 'Escape') {
       event.preventDefault();
       close();
+      return;
+    }
+    if (event.key === 'Tab') {
+      trapTab(event);
       return;
     }
     if (screen === 'end') {

@@ -8,6 +8,7 @@
 //   overlay:open  { id }             id: 'piano' | 'view' | 'postcard' | 'guestbook' | 'minigame'  (tura dahil olmayan ek paneller)
 //   interact      { id }             odada bir eşyaya her dokunuşta (metrikler için)
 //   secret:found  { id }             SECRETS içinden; aynı id birden çok kez gelebilir
+//   project:open  { id }             bir proje ayrıntısı açıldığında (klasik kart/galeri, oyun içi pencere); metrikler oturumda bir kez sayar
 //
 // Arayüz -> Oyun
 //   panel:closed   { id }

@@ -1,8 +1,12 @@
 // Güvenli DOM yardımcıları: içerik her zaman metin düğümü olarak eklenir, innerHTML kullanılmaz.
 
+const LAST_ATTRS = new Set(['src', 'srcset']);
+
 export function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs || {})) {
+  // src/srcset en sona yazılır: loading="lazy" gibi öznitelikler kaynaktan önce gelmezse görsel hemen indirilir.
+  const entries = Object.entries(attrs || {}).sort(([a], [b]) => LAST_ATTRS.has(a) - LAST_ATTRS.has(b));
+  for (const [key, value] of entries) {
     if (value == null || value === false) continue;
     if (key === 'class') node.className = value;
     else if (key === 'text') node.textContent = String(value);

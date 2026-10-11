@@ -91,8 +91,10 @@ export function createPanels(root) {
 
   function focusables() {
     const nodes = win.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    // tabIndex < 0: sekme çubuğundaki seçili olmayan sekmeler (Tab ile gezilmez); listede kalırsa "son öğe" yanlış
+    // hesaplanır ve odak panelin arkasındaki HUD'a kaçar.
     return Array.from(nodes).filter(
-      (node) => !node.closest('[inert]') && !node.closest('[hidden]') && node.getClientRects().length > 0,
+      (node) => node.tabIndex >= 0 && !node.closest('[inert]') && !node.closest('[hidden]') && node.getClientRects().length > 0,
     );
   }
 

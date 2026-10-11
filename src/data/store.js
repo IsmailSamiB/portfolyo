@@ -272,6 +272,11 @@ function sendClosing(events) {
 // http://, www. ya da alan adı benzeri (ornek.com) kalıplar
 const LINK_RE = /(https?:\/\/|www\.|\b[\w-]+\.(com|net|org|io|co|tr|ru|xyz|info|biz|dev|app|gg|tv|shop|site|online|link)\b)/i;
 
+// Metinde bağlantı var mı (defter formu yazarken uyarmak için de kullanılır)
+export function hasLink(text) {
+  return LINK_RE.test(String(text ?? ''));
+}
+
 // Uzaktan gelen metni temizle: kontrol/yön değiştirici karakterler ve aşırı birleşik işaretler (zalgo) atılır.
 const tidy = (s) => String(s ?? '')
   .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
@@ -290,7 +295,7 @@ export const guestbook = {
     const cleanMessage = String(message ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
     if (cleanName.length < 1 || cleanName.length > 40) return { ok: false, reason: 'invalid' };
     if (cleanMessage.length < 3 || cleanMessage.length > 280) return { ok: false, reason: 'invalid' };
-    if (LINK_RE.test(cleanName) || LINK_RE.test(cleanMessage)) return { ok: false, reason: 'link' };
+    if (hasLink(cleanName) || hasLink(cleanMessage)) return { ok: false, reason: 'link' };
     try {
       const last = Number(window.localStorage.getItem(RATE_KEY)) || 0;
       if (Date.now() - last < RATE_MS) return { ok: false, reason: 'rate' };
@@ -314,9 +319,10 @@ export const guestbook = {
   },
 
   // -> [{ id, name, message, createdAt: number (ms) }]  (yeniden eskiye, yalnızca onaylılar)
+  // Okuma hatasında boş liste yerine hata fırlatır (arayüz "yüklenemedi" ile boş defteri ayırır).
   async listApproved() {
     if (!isRemote()) return [];
-    try {
+    {
       const fb = await loadFirebase();
       // where('status','==','approved') güvenlik kuralıyla uyum için şart
       const snap = await fb.getDocs(
@@ -336,8 +342,6 @@ export const guestbook = {
           createdAt: millis(data.createdAt),
         };
       });
-    } catch {
-      return [];
     }
   },
 };
@@ -413,6 +417,7 @@ export const scores = {
   },
 
   // -> [{ id, name, score, at: number (ms) }]  (skor azalan, eşitlikte eski olan önce)
+  // Uzak okuma başarısız olup yerel yedeğe düşülürse dönen diziye local: true eklenir.
   async top(n = 10) {
     const count = Math.max(1, Math.min(100, Math.floor(Number(n)) || 10));
     try {
@@ -425,6 +430,9 @@ export const scores = {
           return snap.docs.map(mapScoreDoc);
         } catch {
           // uzak hata: yerel tabloya düş
+          const rows = readLocalScores().slice(0, count);
+          rows.local = true;
+          return rows;
         }
       }
       return readLocalScores().slice(0, count);

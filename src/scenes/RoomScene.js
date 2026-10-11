@@ -97,7 +97,7 @@ export default class RoomScene extends Phaser.Scene {
       .setAlpha(0.25)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(1);
-    this.tweens.add({ targets: screen, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.ambient({ targets: screen, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     for (const def of PROPS) {
       if (!this.textures.exists(def.key)) continue;
       this.textures.get(def.key).setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -125,7 +125,7 @@ export default class RoomScene extends Phaser.Scene {
           .setAlpha(0.35)
           .setBlendMode(Phaser.BlendModes.ADD)
           .setDepth(def.base + 0.1);
-        this.tweens.add({ targets: glow, alpha: 0.6, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        this.ambient({ targets: glow, alpha: 0.6, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
     }
     const drone = this.props.drone;
@@ -344,19 +344,25 @@ export default class RoomScene extends Phaser.Scene {
     cat.sprite.setTexture(key, frame).setScale(scale);
   }
 
+  // Sürekli (süs) hareketler: prefers-reduced-motion açıkken başlatılmaz, öğe sabit ve görünür kalır.
+  ambient(config) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+    return this.tweens.add(config);
+  }
+
   createMarkers() {
     // Henüz açılmamış bölümlerin üstünde zıplayan "!" ; yaklaşınca "E" tuşu
     this.marks = new Map();
     for (const it of INTERACTABLES.filter((i) => i.kind === 'panel')) {
       const mark = this.add.image(it.mark.x, it.mark.y, 'mark').setOrigin(0.5, 1).setDepth(UI_DEPTH);
-      this.tweens.add({ targets: mark, y: it.mark.y - 3, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.ambient({ targets: mark, y: it.mark.y - 3, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.marks.set(it.id, mark);
     }
     // Defter ve arcade: her zaman görünen, kendi simgeli ipuçları
     this.icons = new Map();
     for (const it of INTERACTABLES.filter((i) => i.icon && this.available(i))) {
       const icon = this.add.image(it.mark.x, it.mark.y, it.icon).setOrigin(0.5, 1).setDepth(UI_DEPTH);
-      this.tweens.add({ targets: icon, y: it.mark.y - 3, duration: 620, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.ambient({ targets: icon, y: it.mark.y - 3, duration: 620, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.icons.set(it.id, icon);
     }
     this.prompt = this.add.image(0, 0, 'keyE').setOrigin(0.5, 1).setDepth(UI_DEPTH + 1).setVisible(false);

@@ -11,7 +11,7 @@ const sprites = path.join(root, 'public', 'assets', 'sprites');
 mkdirSync(out, { recursive: true });
 
 // Ölçümler (alfa > 20, kare içi koordinatlar):
-// player.png kare 0 (64x96, öne duruş): saç tepesi satır 4; baş en geniş satır 17-20 ve 32-39 (x 11..52);
+// player.webp kare 0 (64x96, öne duruş): saç tepesi satır 4; baş en geniş satır 17-20 ve 32-39 (x 11..52);
 //   çene/boyun en dar satır 47 (x 22..41, 20 px), 48'den sonra gövde (omuz) genişler.
 //   Çene çizgisi gözle satır ~49 (sakal ucu); baş = satır 4..49, sütun 11..52 -> 42x46 px (kulaklar dahil).
 // firfir-walk.png kare 7 (64x56, öne bakan): kuyruk satır 2..15 (x 26..36, dar); kulaklar satır 16'da başlar
@@ -19,7 +19,7 @@ mkdirSync(out, { recursive: true });
 //   Tasma satır 34 ve sonrası dışarıda; baş = satır 16..33, sütun 22..41 -> 20x18 px (kuyruk dışarıda kalır).
 const CREAM = '#f4e4c1';
 const jobs = [
-  { name: 'karakter', file: 'player.png', fw: 64, fh: 96, cols: 6, idx: 0,
+  { name: 'karakter', file: 'player.webp', fw: 64, fh: 96, cols: 6, idx: 0,
     box: { left: 11, top: 4, width: 42, height: 46 }, bg: '#2b2030', scale: 3 },
   { name: 'firfir', file: 'firfir-walk.png', fw: 64, fh: 56, cols: 6, idx: 7,
     box: { left: 22, top: 16, width: 20, height: 18 }, bg: '#d9622b', scale: 7 },
