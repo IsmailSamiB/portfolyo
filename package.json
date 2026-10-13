@@ -11,7 +11,7 @@
     "qr": "node scripts/qr-site.mjs"
   },
   "dependencies": {
-    "firebase": "^12.19.0",
+    "firebase": "^13.0.0",
     "phaser": "^3.90.0",
     "qrcode-generator": "^2.0.4"
   },
