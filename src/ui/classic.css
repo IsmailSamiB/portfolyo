@@ -334,6 +334,11 @@
   animation: cl-pan 90s linear infinite alternate;
 }
 
+/* Kahraman ekran dışındayken şerit durur (classic.js .is-vis yazar) */
+#classic .cl-hero:not(.is-vis) .cl-hero-bg {
+  animation-play-state: paused;
+}
+
 #classic .cl-hero::after {
   content: '';
   position: absolute;
@@ -1819,6 +1824,12 @@
     animation: cl-pulse 2.4s steps(1, end) 1.2s infinite;
   }
 
+  /* Ekran dışındayken nabız durur (classic.js .is-vis yazar): her kare stil hesabı olmasın */
+  #classic .cl-tl-item.is-current:not(.is-vis)::before,
+  #classic .cl-roles-item.is-current:not(.is-vis)::before {
+    animation-play-state: paused;
+  }
+
   #classic .cl-tl-item.cl-reveal.is-current.is-in:not(.is-done)::before {
     animation:
       cl-pop var(--cl-t-pop) steps(1, end) var(--cl-d, 0ms) backwards,
@@ -1888,12 +1899,13 @@
     margin-left: 0.04em;
     background: currentColor;
     opacity: 0;
-    animation: cl-cur var(--ty-step, 20ms) steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms)) forwards;
+    animation: cl-cur var(--ty-step, 20ms) steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms));
   }
 
-  /* Son harfte imleç 3 kez yanıp söner, sonra kalmaz */
+  /* Son harfte imleç 3 kez yanıp söner, sonra kalmaz. forwards yok: bitince varsayılan opaklık 0 geçerli olur
+     (forwards ile kısa sürede kayan nokta hatası imleci son karesinde "açık" dondurabiliyordu). */
   #classic .cl-hero.is-intro .cl-ch.is-last::after {
-    animation: cl-cur-end 480ms steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms)) forwards;
+    animation: cl-cur-end 480ms steps(1, end) calc(var(--hi-type) + var(--ty-i, 0) * var(--ty-step, 20ms));
   }
 
   /* Kopyala: kısa "pat" ve durum metni */

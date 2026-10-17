@@ -314,6 +314,8 @@ const RV_SETTLE = 1500; // bu süre sonunda animasyon kuralları kalkar (is-done
 const RV_SWEEP = 400; // güvenlik ağı turu: iki ardışık turda (0,4-0,8 sn) ekranda olup açılmamış öğe doğrudan gösterilir
 const RV_RATIO = 0.01; // gözlemci eşiği
 const RV_BOTTOM = 0; // görünüm alanının alttan sayılmayan payı
+const RV_FAST = 1000; // px/sn: bundan hızlı kaydırırken ekrana giren öğeler animasyonsuz açılır (telefonda kare düşmesin)
+const RV_FAST_WINDOW = 100; // hız, son bu kadar ms'deki kaydırmadan ölçülür
 
 // ---------- Açılış (hero) ve "Devamını göster" ----------
 
@@ -1948,8 +1950,22 @@ export function createClassic(root) {
     }
   }
 
+  // Kaydırma hızı: kaydırma olayları kare başına bir kez gelir; [zaman, konum] çiftleri, pencereden eski olan tek örnek taban kalır.
+  const scrollSamples = [];
+  function noteScroll() {
+    const now = performance.now();
+    scrollSamples.push(now, window.scrollY);
+    while (scrollSamples.length > 4 && now - scrollSamples[2] > RV_FAST_WINDOW) scrollSamples.splice(0, 2);
+  }
+  function scrollSpeed() {
+    const n = scrollSamples.length;
+    if (n < 4 || performance.now() - scrollSamples[n - 2] > RV_FAST_WINDOW) return 0;
+    return (Math.abs(scrollSamples[n - 1] - scrollSamples[1]) * 1000) / Math.max(1, scrollSamples[n - 2] - scrollSamples[0]);
+  }
+
   let scrollQueued = false;
-  function onScroll() {
+  function onScroll(event) {
+    if (event && event.type === 'scroll') noteScroll();
     if (!active || scrollQueued) return;
     scrollQueued = true;
     requestAnimationFrame(() => {
@@ -2105,6 +2121,7 @@ export function createClassic(root) {
     clearTimeout(ctx.copyTimer);
     if (ctx.disposeGuestbook) ctx.disposeGuestbook();
     if (ctx.io) ctx.io.disconnect();
+    if (ctx.loopIo) ctx.loopIo.disconnect();
     const bar = root.querySelector('.cl-bar');
     if (bar && sizeObserver) sizeObserver.unobserve(bar);
   }
@@ -2129,6 +2146,7 @@ export function createClassic(root) {
       navList: null,
       copyTimer: null,
       io: null,
+      loopIo: null,
       lightbox,
       goTo,
       filter: filterState,
@@ -2184,9 +2202,15 @@ export function createClassic(root) {
       context.io = new IntersectionObserver(
         (entries) => {
           const groups = new Map();
+          // Hızlı kaydırmada aynı anda onlarca animasyon başlamasın: öğeler doğrudan son hâlinde açılır.
+          const fast = scrollSpeed() > RV_FAST;
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
             const node = entry.target;
+            if (fast) {
+              reveal(node, 0, true);
+              continue;
+            }
             const at = groups.get(node.parentElement) || 0;
             groups.set(node.parentElement, at + 1);
             const inTimeline = node.classList.contains('cl-tl-item');
@@ -2199,6 +2223,18 @@ export function createClassic(root) {
         context.pending.add(node);
         context.io.observe(node);
       }
+    }
+
+    // Sonsuz animasyonlar (kahraman şeridi, "devam ediyor" nabzı) ekran dışındayken de kare ürettirir:
+    // yalnızca ekrandayken oynar (.is-vis), ekran dışında duraklar.
+    const loops = root.querySelectorAll('.cl-hero, .cl-tl-item.is-current, .cl-roles-item.is-current');
+    if (typeof IntersectionObserver !== 'function') {
+      for (const node of loops) node.classList.add('is-vis');
+    } else if (loops.length) {
+      context.loopIo = new IntersectionObserver((entries) => {
+        for (const entry of entries) entry.target.classList.toggle('is-vis', entry.isIntersecting);
+      });
+      for (const node of loops) context.loopIo.observe(node);
     }
 
     if (active) {
