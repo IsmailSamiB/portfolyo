@@ -13,7 +13,7 @@
     "firfir": "node scripts/firfir-sheet.mjs"
   },
   "dependencies": {
-    "firebase": "^12.19.0",
+    "firebase": "^13.1.0",
     "phaser": "^3.90.0",
     "qrcode-generator": "^2.0.4"
   },
