@@ -39,7 +39,7 @@ function stageReady() {
 
 // Oyun görselleri motor inip çalışmaya başlayınca istenir; aynı dosyaları şimdiden önbelleğe almak
 // (motorla aynı anda indirmek) bekleme süresini kısaltır. Liste BootScene.preload ile aynıdır.
-const GAME_ASSETS = ['assets/sprites/player.webp', 'assets/sprites/firfir.png', 'assets/sprites/firfir-walk.png', 'assets/sprites/drone.png'];
+const GAME_ASSETS = ['assets/sprites/player-v2.webp', 'assets/sprites/firfir-v2.webp', 'assets/sprites/drone.png'];
 let warmed = false;
 function warmAssets() {
   if (warmed || typeof fetch !== 'function') return;

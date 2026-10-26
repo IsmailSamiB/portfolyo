@@ -7,21 +7,22 @@ import { mkdirSync } from 'fs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'assets-src', 'favicon');
-const sprites = path.join(root, 'public', 'assets', 'sprites');
+// Eski (v1) sprite sayfaları; oyun artık player-v2/firfir-v2 atlaslarını kullanır
+const sprites = path.join(root, 'assets-src');
 mkdirSync(out, { recursive: true });
 
 // Ölçümler (alfa > 20, kare içi koordinatlar):
-// player.webp kare 0 (64x96, öne duruş): saç tepesi satır 4; baş en geniş satır 17-20 ve 32-39 (x 11..52);
+// player-sheet.png (eski player.webp'nin kaynağı) kare 0 (64x96, öne duruş): saç tepesi satır 4; baş en geniş satır 17-20 ve 32-39 (x 11..52);
 //   çene/boyun en dar satır 47 (x 22..41, 20 px), 48'den sonra gövde (omuz) genişler.
 //   Çene çizgisi gözle satır ~49 (sakal ucu); baş = satır 4..49, sütun 11..52 -> 42x46 px (kulaklar dahil).
-// firfir-walk.png kare 7 (64x56, öne bakan): kuyruk satır 2..15 (x 26..36, dar); kulaklar satır 16'da başlar
+// sprites-eski/firfir-walk.png kare 7 (64x56, öne bakan): kuyruk satır 2..15 (x 26..36, dar); kulaklar satır 16'da başlar
 //   (genişlik 13 -> 23..40); baş 16..33 (x 22..41); satır 34'te tasma/göğüs, satır 44+ gövde daralır.
 //   Tasma satır 34 ve sonrası dışarıda; baş = satır 16..33, sütun 22..41 -> 20x18 px (kuyruk dışarıda kalır).
 const CREAM = '#f4e4c1';
 const jobs = [
-  { name: 'karakter', file: 'player.webp', fw: 64, fh: 96, cols: 6, idx: 0,
+  { name: 'karakter', file: 'player-sheet.png', fw: 64, fh: 96, cols: 6, idx: 0,
     box: { left: 11, top: 4, width: 42, height: 46 }, bg: '#2b2030', scale: 3 },
-  { name: 'firfir', file: 'firfir-walk.png', fw: 64, fh: 56, cols: 6, idx: 7,
+  { name: 'firfir', file: 'sprites-eski/firfir-walk.png', fw: 64, fh: 56, cols: 6, idx: 7,
     box: { left: 22, top: 16, width: 20, height: 18 }, bg: '#d9622b', scale: 7 },
 ];
 

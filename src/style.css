@@ -1066,14 +1066,15 @@ body.is-classic .hud-top {
   min-height: 430px;
   min-height: min(430px, calc(100dvh - 150px));
   padding: 18px;
-  background-color: #356f58;
+  /* Duvar kâğıdı: gece Boğaz (pixel art, assets-src/chatgpt/portfolyos-duvar-kagidi.png). Üst kısım koyu ve sakin;
+     geniş ekranda simgeler orada tek sıra durur. Görsel gelmezse koyu zemin kalır. */
+  background-color: #1c3a3a;
   background-image:
-    linear-gradient(45deg, rgba(0, 0, 0, 0.08) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.08) 75%),
-    linear-gradient(45deg, rgba(0, 0, 0, 0.08) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.08) 75%);
-  background-size: 8px 8px;
-  background-position:
-    0 0,
-    4px 4px;
+    linear-gradient(rgba(8, 22, 26, 0.1), rgba(8, 22, 26, 0.1)),
+    url('/assets/ui/os-wallpaper.webp');
+  background-size: cover;
+  background-position: center bottom;
+  image-rendering: pixelated;
 }
 
 .os-icons {
@@ -1102,12 +1103,19 @@ body.is-classic .hud-top {
 .os-icon:hover,
 .os-icon:focus-visible {
   border-color: var(--cream);
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(8, 22, 26, 0.55);
 }
 
 .os-icon-label {
   text-align: center;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  /* Pixel kontur: duvar kâğıdının ışıklı yerlerinde de okunur */
+  text-shadow:
+    -2px 0 0 #0b1a1e,
+    2px 0 0 #0b1a1e,
+    0 -2px 0 #0b1a1e,
+    0 2px 0 #0b1a1e,
+    2px 2px 0 #0b1a1e,
+    3px 3px 0 rgba(0, 0, 0, 0.5);
   overflow-wrap: anywhere;
 }
 
@@ -1160,6 +1168,8 @@ body.is-classic .hud-top {
   left: 18px;
   bottom: 12px;
   margin: 0;
+  padding: 2px 8px;
+  background: rgba(8, 22, 26, 0.78); /* duvar kâğıdındaki ışıkların üstünde okunur kalsın */
   color: var(--cream);
   font-size: var(--fs-md);
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);

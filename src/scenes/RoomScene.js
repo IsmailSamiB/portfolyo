@@ -20,6 +20,8 @@ import {
   tileAt,
   tileCenter,
 } from '../game/room.js';
+import { PLAYER_TEXTURE, PLAYER_SCALE, PLAYER_ORIGIN, PLAYER_CELL, PLAYER_FRAMES, PLAYER_ANIMS, PLAYER_STILL } from '../game/player-frames.js';
+import { registerCatAnims, createCatSprite, setCatPose, catHasAnim, CAT_SCALE, CAT_WALK_STEP } from '../game/cat-anims.js';
 
 const SPEED = 55;
 const CAT_SPEED = 22;
@@ -27,8 +29,10 @@ const REACH = 14;
 const UI_DEPTH = 9500;
 const CANCELLED = Symbol('cancelled');
 
-// Karakter sprite sayfası (varsa): satırlar aşağı/yukarı/sol/sağ, sütunlar duruş/adım1/adım2/oturma
-const SHEET_ROWS = { down: 0, up: 1, left: 2, right: 3 };
+// Yatakta: idle-down'ın gözü kapalı karesi, baş ve omuzlar görünür; hücre altından bu kadarı
+// (bacaklar, bel) kırpılır — ayak hücre altına hizalı, hücre boyu atlasla değişse de aynı yer
+const BED_FRAME = 'idle3';
+const BED_HIDE = 91;
 
 export default class RoomScene extends Phaser.Scene {
   constructor() {
@@ -239,34 +243,123 @@ export default class RoomScene extends Phaser.Scene {
     this.moving = false;
     this.facing = 'down';
     this.flip = false;
-    this.useSheet = this.textures.exists('playerSheet');
-    // Sayfa küçültülerek çizildiği için yumuşak filtre
-    if (this.useSheet) this.textures.get('playerSheet').setFilter(Phaser.Textures.FilterMode.LINEAR);
-    // 6 sütunlu sayfa: duruş + 4 karelik yürüme + oturma · 4 sütunlu: duruş + 2 adım + oturma
-    const cols = this.useSheet ? Math.round((this.textures.get('playerSheet').frameTotal - 1) / 4) : 4;
-    this.sheetCols = cols;
-    // Sayfada 1-2 bir ayağın, 3-4 diğer ayağın adımı; araya duruş karesi girince adımlar net okunur
-    this.walkCycle = cols >= 6 ? [1, 2, 0, 3, 4, 0] : [1, 0, 2, 0];
+    this.useSheet = this.textures.exists(PLAYER_TEXTURE);
+    if (this.useSheet) this.createPlayerAnims();
+    // Yedek çizim (sayfa yoksa): duruş + 2 adım
+    this.walkCycle = [1, 0, 2, 0];
     this.walkPhase = 0;
     this.speed = 0;
+    this.action = null; // tek seferlik animasyon (el sallama)
     this.shadow = this.add.image(this.px, this.py, 'shadow').setOrigin(0.5, 0.6);
+    // Doku kaynak çözünürlüğünde, NEAREST (oyun varsayılanı) ile küçültülerek çizilir
     this.player = this.useSheet
-      ? this.add.sprite(this.px, this.py, 'playerSheet', 0).setOrigin(0.5, 1).setScale(0.3)
+      ? this.add.sprite(this.px, this.py, PLAYER_TEXTURE, 'idle0').setOrigin(PLAYER_ORIGIN.x, PLAYER_ORIGIN.y).setScale(PLAYER_SCALE)
       : this.add.image(this.px, this.py, 'p_down_0').setOrigin(0.5, 1);
     this.tap = this.add.image(0, 0, 'tap').setVisible(false).setDepth(2);
   }
 
-  // dir: 'down' | 'up' | 'side' (flip = sağa bakıyor) · frame: sayfa sütunu (0 duruş), 'sit', 'lie'
-  drawPlayer(dir, frame) {
+  get reducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  // Atlas kareleri ve animasyonlar (oyun genelinde bir kez)
+  createPlayerAnims() {
+    const tex = this.textures.get(PLAYER_TEXTURE);
+    if (!tex.has('idle0')) {
+      for (const [name, [x, y]] of Object.entries(PLAYER_FRAMES)) tex.add(name, 0, x, y, PLAYER_CELL.w, PLAYER_CELL.h);
+    }
+    this.stepFrames = {};
+    for (const [key, def] of Object.entries(PLAYER_ANIMS)) {
+      if (def.steps) this.stepFrames[key] = new Set(def.steps.map((i) => def.frames[i][0]));
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key,
+        frames: def.frames.map(([frame, duration]) => ({ key: PLAYER_TEXTURE, frame, duration })),
+        repeat: def.once ? 0 : -1,
+      });
+    }
+  }
+
+  // Sayfa animasyonu: aynısı zaten oynuyorsa baştan başlatmaz
+  playAnim(key) {
     const p = this.player;
-    if (this.useSheet) {
-      const row = dir === 'side' ? (this.flip ? SHEET_ROWS.right : SHEET_ROWS.left) : SHEET_ROWS[dir];
-      const col = frame === 'sit' ? this.sheetCols - 1 : frame === 'lie' ? 0 : frame;
-      p.setFrame(row * this.sheetCols + col).setFlipX(false);
-      if (frame === 'lie') p.setCrop(0, 0, 64, 50);
-      else p.setCrop();
+    if (p.anims.currentAnim?.key !== key || !p.anims.isPlaying) p.play(key);
+    p.anims.timeScale = 1;
+  }
+
+  // Sabit kare (animasyon durur)
+  holdFrame(frame) {
+    const p = this.player;
+    if (p.anims.isPlaying) p.anims.stop();
+    if (p.frame.name !== frame) p.setFrame(frame);
+  }
+
+  // Sayfayla durma/yürüme çizimi. moved: bu karede kat edilen yol (dünya px)
+  drawSheet(moved, dt) {
+    const p = this.player;
+    p.setFlipX(this.facing === 'side' && !this.flip); // kaynak sağa bakar
+    // Duvara dayanıp yerinde sayarken yürüme karesinde donmasın: duruş çizilir
+    if (this.moving && moved > 0.02) {
+      this.action = null;
+      const key = `walk-${this.facing}`;
+      this.playAnim(key);
+      // Kare hızı gerçek hıza bağlı: kalkışta yavaş başlar (ayak kaymaz)
+      p.anims.timeScale = Phaser.Math.Clamp(moved / (SPEED * dt || 1), 0, 1.5);
+      // Kare, sahne güncellemesinden önce ilerler: değişim bir önceki çağrıya göre izlenir
+      if (p.frame.name !== this.lastSheetFrame && this.stepFrames[key]?.has(p.frame.name)) sfx('step');
+      this.lastSheetFrame = p.frame.name;
       return;
     }
+    this.lastSheetFrame = null;
+    // Tek seferlik animasyon (el sallama, gitar...) bitene kadar bekleme döngüsü başlamaz
+    if (this.action && p.anims.isPlaying && p.anims.currentAnim?.key === this.action) return;
+    this.action = null;
+    // Durunca baktığı yönün bekleme döngüsü (iki ayak yerde); yan için yürüme gibi aynalanır
+    if (this.reducedMotion) this.holdFrame(PLAYER_STILL[this.facing] ?? PLAYER_STILL.down);
+    else this.playAnim(`idle-${this.facing}`);
+  }
+
+  // Bir kez el sallar (önden). Hareket azaltma açıkken ya da otururken yok.
+  wave() {
+    if (!this.moving) this.playOnce('wave');
+  }
+
+  // Tek seferlik animasyon (önden). Atlasta yoksa (gitar/kahve şeritleri henüz çizilmedi) yalnız öne döner:
+  // bekleme döngüsü oynar. 'strum' · 'sip' · 'water' adlı animasyonlar eklenince kendiliğinden kullanılır.
+  playOnce(key) {
+    if (!this.useSheet || this.pose) return;
+    this.facing = 'down';
+    if (this.reducedMotion || !this.anims.exists(key)) return;
+    this.action = key;
+    this.player.setFlipX(false).play(key);
+  }
+
+  // Oturma/uzanma pozu: masa ve piyano (arkadan) -> type-up, bank/minder (önden) -> sit-phone,
+  // yatak -> gözü kapalı bekleme karesinin üst kısmı (yorgan altı)
+  drawPose(dir, type) {
+    const p = this.player;
+    this.action = null;
+    p.setFlipX(false);
+    if (type === 'lie') {
+      // Uyku şeridi (sleep-bed) eklenirse o oynar; yoksa kırpılmış gözü kapalı kare
+      if (this.anims.exists('sleep-bed') && !this.reducedMotion) {
+        p.setCrop();
+        this.playAnim('sleep-bed');
+        return;
+      }
+      this.holdFrame(BED_FRAME);
+      p.setCrop(0, 0, PLAYER_CELL.w, PLAYER_CELL.h - BED_HIDE);
+      return;
+    }
+    p.setCrop();
+    const key = dir === 'up' ? 'type-up' : 'sit-phone';
+    if (this.reducedMotion) this.holdFrame(key === 'type-up' ? 'type0' : 'phone3');
+    else this.playAnim(key);
+  }
+
+  // Yedek çizim. dir: 'down' | 'up' | 'side' (flip = sağa bakıyor) · frame: 0 duruş, 1-2 adım, 'sit', 'lie'
+  drawPlayer(dir, frame) {
+    const p = this.player;
     p.setTexture(`p_${dir}_${typeof frame === 'number' ? Math.min(frame, 2) : 0}`).setFlipX(dir === 'side' && this.flip);
     // Yedek çizimde oturma/uzanma: bacaklar (ve uzanırken gövde) kırpılır
     if (frame === 'sit') p.setCrop(0, 0, 16, 15);
@@ -276,72 +369,141 @@ export default class RoomScene extends Phaser.Scene {
 
   createCat() {
     const start = tileCenter(28, 13);
-    for (const key of ['firfir', 'firfirWalk', 'firfirPose']) {
-      if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
-    }
-    // Tam animasyon iki sayfayı da ister; biri eksikse kodla çizilen yedek kedi kullanılır
-    const sheet = this.textures.exists('firfir') && this.textures.exists('firfirWalk');
+    // Atlas yoksa kodla çizilen yedek kedi kullanılır
+    const sheet = registerCatAnims(this);
     this.cat = {
       x: start.x,
       y: start.y,
       path: null,
-      mode: 'idle', // idle | walk | sit | groom | sleep | stretch | belly
+      mode: 'idle', // idle | walk | sit | groom | sleep | stretch | belly | jump
       dir: 'side',
       phase: 0,
       speed: 0,
       scale: 1,
+      hop: 0, // zıplarken yerden yükseklik (negatif = yukarı)
+      tween: null, // gerinme/zıplama tween'i
+      onArrive: null, // 'player': varınca oyuncuya dönüp oturur
       thinkAt: 3000,
       blinkAt: 0,
       blinkUntil: 0,
       sheet,
-      poses: this.textures.exists('firfirPose'),
+      faceLeft: false,
       shadow: this.add.image(start.x, start.y, 'shadow').setOrigin(0.5, 0.6).setScale(0.85, 0.7),
-      sprite: sheet
-        ? this.add.sprite(start.x, start.y, 'firfirWalk', 0).setOrigin(0.5, 1)
-        : this.add.image(start.x, start.y, 'cat0').setOrigin(0.5, 1),
+      sprite: sheet ? createCatSprite(this, start.x, start.y) : this.add.image(start.x, start.y, 'cat0').setOrigin(0.5, 1),
     };
     this.drawCat('stand');
   }
 
-  // pose: 'side' | 'down' | 'up' (yürüme; index = adım) · 'stand' · 'sit' · 'blink' · 'groom' · 'sleep' · 'stretch' · 'belly'
-  // Sayfalar — firfirWalk: 0-5 yandan yürüme, 6-7 öne, 8-9 arkaya, 10 oturma, 11 göz kırpma
-  //           firfirPose: 0-1 uyku (nefes), 2 gerinme, 3 ayakta, 4-5 pati yalama, 6-7 sırtüstü · firfir (eski): 4 uyku, 5 sırtüstü
+  // pose: 'side' | 'down' | 'up' (yürüme; index = adım) · 'air' (zıplama) · 'stand' · 'sit' · 'blink' · 'groom' · 'sleep' · 'stretch' · 'belly'
+  // Önden/arkadan yürüme şeridi yoksa down/up da yandan yürür; diğer pozlar animasyon (cat-anims.js).
+  // Her pozda baktığı yön korunur (oturunca, uyurken, sevilirken de).
   drawCat(pose, index = 0) {
     const cat = this.cat;
+    cat.sprite.setFlipX(cat.faceLeft);
     if (!cat.sheet) {
       const step = index % 2 ? 'cat1' : 'cat0';
-      const key = { side: step, down: step, up: step, stand: 'cat0', sit: 'catSit', blink: 'catSit', groom: 'catSit', sleep: 'catSleep', stretch: 'cat0', belly: 'catSit' }[pose];
+      const key = { side: step, down: step, up: step, air: 'cat1', stand: 'cat0', sit: 'catSit', blink: 'catSit', groom: 'catSit', sleep: 'catSleep', stretch: 'cat0', belly: 'catSit' }[pose];
       cat.sprite.setTexture(key);
       return;
     }
-    // Sayfalar farklı ölçekte kesildi; aynı boyda görünsünler
-    const WALK = 0.35;
-    const OLD = 0.3;
-    const POSE = 0.36;
-    const extra = cat.poses
-      ? {
-          stand: ['firfirPose', 3, POSE],
-          groom: ['firfirPose', 4 + (index % 2), POSE],
-          sleep: ['firfirPose', index % 2, POSE],
-          stretch: ['firfirPose', 2, POSE],
-          belly: ['firfirPose', 6 + (index % 2), POSE],
-        }
-      : {};
-    const [key, frame, scale] = {
-      side: ['firfirWalk', index % 6, WALK],
-      down: ['firfirWalk', 6 + (index % 2), WALK],
-      up: ['firfirWalk', 8 + (index % 2), WALK],
-      stand: ['firfirWalk', 1, WALK],
-      sit: ['firfirWalk', 10, WALK],
-      blink: ['firfirWalk', 11, WALK],
-      groom: ['firfirWalk', 10, WALK],
-      sleep: ['firfir', 4, OLD],
-      stretch: ['firfirWalk', 1, WALK],
-      belly: ['firfir', 5, OLD],
-      ...extra,
-    }[pose];
-    cat.scale = scale;
-    cat.sprite.setTexture(key, frame).setScale(scale);
+    setCatPose(cat.sprite, pose, index);
+  }
+
+  // Gerinme/zıplama tween'ini keser; ölçek ve yükseklik sıfırlanır
+  stopCatTween() {
+    const cat = this.cat;
+    cat.tween?.stop();
+    cat.tween = null;
+    cat.hop = 0;
+    cat.sprite.setScale(cat.sheet ? CAT_SCALE : cat.scale);
+  }
+
+  catSit(time, min, max) {
+    const cat = this.cat;
+    const calm = this.reducedMotion ? 1.5 : 1; // hareket azaltılmışsa daha uzun oturur
+    cat.mode = 'sit';
+    cat.thinkAt = time + Phaser.Math.Between(min, max) * calm;
+    this.drawCat('sit');
+  }
+
+  // Uyanınca gerinir: gerinme şeridi yoksa ayakta duruş öne-arkaya esnetilir (hareket azaltılmışsa esnetme yok)
+  catStretch(time) {
+    const cat = this.cat;
+    cat.mode = 'stretch';
+    cat.thinkAt = time + 1400;
+    this.drawCat('stretch');
+    if (!cat.sheet || catHasAnim('stretch') || this.reducedMotion) return;
+    const s = { k: 0 };
+    cat.tween = this.tweens.add({
+      targets: s,
+      k: 1,
+      duration: 420,
+      hold: 380,
+      yoyo: true,
+      ease: 'Sine.inOut',
+      onUpdate: () => cat.sprite.setScale(CAT_SCALE * (1 + 0.14 * s.k), CAT_SCALE * (1 - 0.13 * s.k)),
+      onComplete: () => this.stopCatTween(),
+    });
+  }
+
+  // Ender oyun: çömelir, 2-3 kare ileri sıçrar, konar. Önü kapalıysa arkasına döner; ikisi de kapalıysa false.
+  catPounce() {
+    const cat = this.cat;
+    if (!cat.sheet || this.reducedMotion) return false;
+    const here = tileAt(cat.x, cat.y - 3);
+    for (const sx of cat.faceLeft ? [-1, 1] : [1, -1]) {
+      const n = Phaser.Math.Between(2, 3);
+      let clear = true;
+      for (let k = 1; k <= n; k++) clear &&= isFree(here.c + sx * k, here.r);
+      if (!clear) continue;
+      const fromX = cat.x;
+      const toX = tileCenter(here.c + sx * n, here.r).x;
+      cat.faceLeft = sx < 0;
+      cat.mode = 'jump';
+      cat.thinkAt = Infinity;
+      const s = { t: 0 };
+      // 0-0.35 çömelme (popo kıpırdar) · 0.35-0.75 havada · 0.75-1 iniş
+      cat.tween = this.tweens.add({
+        targets: s,
+        t: 1,
+        duration: 1150,
+        onUpdate: () => {
+          const t = s.t;
+          let sx2 = 1;
+          let sy = 1;
+          if (t < 0.35) {
+            const c = Math.min(1, t / 0.15);
+            sx2 = 1 + 0.08 * c;
+            sy = 1 - 0.14 * c;
+            cat.x = fromX - (cat.faceLeft ? -1 : 1) * 0.4 * Math.sin(t * 60) * c;
+            this.drawCat('side', 0);
+          } else if (t < 0.75) {
+            const u = (t - 0.35) / 0.4;
+            cat.x = fromX + (toX - fromX) * u;
+            cat.hop = -7 * Math.sin(Math.PI * u);
+            sx2 = 1.06;
+            sy = 0.97;
+            this.drawCat('air', u);
+          } else {
+            const u = (t - 0.75) / 0.25;
+            cat.x = toX;
+            cat.hop = 0;
+            sx2 = 1 + 0.06 * (1 - u);
+            sy = 1 - 0.12 * (1 - u);
+            this.drawCat('side', 2);
+          }
+          cat.sprite.setScale(CAT_SCALE * sx2, CAT_SCALE * sy);
+        },
+        onComplete: () => {
+          this.stopCatTween();
+          cat.mode = 'idle';
+          cat.thinkAt = this.time.now + Phaser.Math.Between(900, 1800);
+          this.drawCat('stand');
+        },
+      });
+      return true;
+    }
+    return false;
   }
 
   // Sürekli (süs) hareketler: prefers-reduced-motion açıkken başlatılmaz, öğe sabit ve görünür kalır.
@@ -398,6 +560,12 @@ export default class RoomScene extends Phaser.Scene {
       on('panel:open', ({ id }) => {
         this.visited.add(id);
         this.marks.get(id)?.setVisible(false);
+      }),
+      // Dört bölüm de gezilince (başarım) bir kez el sallar
+      on('panel:closed', () => {
+        if (this.wavedAll || !SECTIONS.every((id) => this.visited.has(id))) return;
+        this.wavedAll = true;
+        this.time.delayedCall(350, () => this.wave());
       }),
       on('overlay:closed', ({ id }) => {
         if (id === 'piano' && this.pose) this.standUp();
@@ -473,6 +641,7 @@ export default class RoomScene extends Phaser.Scene {
       this.cutscene = false;
       const { name, title } = content.profile;
       emit('dialog:show', { lines: pick(introLines(name, pick(title), visitorRef())), speaker: name });
+      this.wave();
     };
     if (reduced) {
       this.time.delayedCall(300, greet);
@@ -550,6 +719,15 @@ export default class RoomScene extends Phaser.Scene {
           this.pose.nextZ = time + 900;
           this.fx.z.emitParticleAt(this.pose.x + 4, this.pose.y - 18, 1);
         }
+        // Gitar çalarken arada nota; not kutusu açıkken süre işlemez (kapanınca ~2.5 sn daha çalar)
+        if (this.pose.type === 'strum') {
+          if (this.locked) this.pose.until = Math.max(this.pose.until, time + 2500);
+          if (time > this.pose.until) this.standUp();
+          else if (time > this.pose.nextZ) {
+            this.pose.nextZ = time + 800;
+            this.fx.note.emitParticleAt(this.pose.x + 6, this.pose.y - 20, 1);
+          }
+        }
         return;
       }
       vx = 0;
@@ -609,20 +787,26 @@ export default class RoomScene extends Phaser.Scene {
       const sideways = this.facing === 'side' ? ax * 1.35 >= ay : ax > ay * 1.35;
       this.facing = sideways ? 'side' : vy < 0 ? 'up' : 'down';
       if (this.facing === 'side' && ax > 0.01) this.flip = vx > 0;
-      // Kare, kat edilen mesafeye bağlı: adımlar zeminde kaymaz
-      const moved = Math.hypot(this.px - fromX, this.py - fromY);
-      this.walkPhase += moved / (this.walkCycle.length > 4 ? 3.6 : 5.5);
-      const index = Math.floor(this.walkPhase) % this.walkCycle.length;
-      frame = this.walkCycle[index];
-      if (index !== this.lastStepIndex && frame !== 0 && this.lastFrame === 0) sfx('step');
-      this.lastFrame = frame;
-      this.lastStepIndex = index;
-    } else {
-      this.walkPhase = 0;
-      this.lastStepIndex = -1;
-      this.lastFrame = 0;
     }
-    this.drawPlayer(this.facing, frame);
+    const moved = Math.hypot(this.px - fromX, this.py - fromY);
+    if (this.useSheet) {
+      this.drawSheet(moved, dt);
+    } else {
+      // Yedek çizim: kare, kat edilen mesafeye bağlı (adımlar zeminde kaymaz)
+      if (this.moving) {
+        this.walkPhase += moved / 5.5;
+        const index = Math.floor(this.walkPhase) % this.walkCycle.length;
+        frame = this.walkCycle[index];
+        if (index !== this.lastStepIndex && frame !== 0 && this.lastFrame === 0) sfx('step');
+        this.lastFrame = frame;
+        this.lastStepIndex = index;
+      } else {
+        this.walkPhase = 0;
+        this.lastStepIndex = -1;
+        this.lastFrame = 0;
+      }
+      this.drawPlayer(this.facing, frame);
+    }
     const x = Math.round(this.px);
     const y = Math.round(this.py);
     this.player.setPosition(x, y + (this.hop || 0)).setDepth(this.py);
@@ -652,18 +836,25 @@ export default class RoomScene extends Phaser.Scene {
       const ay = Math.abs(dy);
       const sideways = cat.dir === 'side' ? ax * 1.5 >= ay : ax > ay * 1.5;
       cat.dir = sideways ? 'side' : dy < 0 ? 'up' : 'down';
-      if (cat.dir !== 'side') cat.sprite.setFlipX(false);
-      else if (ax > 0.01) cat.sprite.setFlipX(dx < 0);
+      // Hep yandan yürür: yatay bileşene göre döner, tam dikeyde son yatay yönünü korur
+      if (ax > 0.01) cat.faceLeft = dx < 0;
       // Kare, kat edilen mesafeye bağlı: patiler zeminde kaymaz
-      cat.phase += Math.min(step, dist) / (cat.dir === 'side' ? 3.6 : 5.5);
+      cat.phase += Math.min(step, dist) / CAT_WALK_STEP;
       this.drawCat(cat.dir, Math.floor(cat.phase));
       if (!cat.path.length) {
-        // Vardı: önce bir süre ayakta durur, sonra ne yapacağına karar verir
-        cat.mode = 'idle';
         cat.speed = 0;
         cat.dir = 'side';
-        cat.thinkAt = time + Phaser.Math.Between(700, 1800);
-        this.drawCat('stand');
+        if (cat.onArrive === 'player') {
+          // Oyuncunun yanına geldi: ona dönüp oturur
+          if (Math.abs(this.px - cat.x) > 1) cat.faceLeft = this.px < cat.x;
+          this.catSit(time, 4000, 8000);
+        } else {
+          // Vardı: önce bir süre ayakta durur, sonra ne yapacağına karar verir
+          cat.mode = 'idle';
+          cat.thinkAt = time + Phaser.Math.Between(700, 1800);
+          this.drawCat('stand');
+        }
+        cat.onArrive = null;
       }
     } else if (time > cat.thinkAt) {
       this.catThink(time);
@@ -678,70 +869,86 @@ export default class RoomScene extends Phaser.Scene {
     } else if (cat.mode === 'belly') {
       this.drawCat('belly', Math.floor(time / 380));
     } else if (cat.mode === 'sleep') {
-      // Uyurken yavaş nefes: iki kare; eski tek karelik sayfada hafif ölçek değişimi
-      this.drawCat('sleep', Math.floor(time / 1100));
-      if (!cat.poses) cat.sprite.setScale(cat.scale, cat.scale * (1 + 0.035 * Math.sin(time / 700)));
+      // Uyurken nefes animasyonu; yedek çizimde hafif ölçek değişimi
+      this.drawCat('sleep');
+      if (!cat.sheet) cat.sprite.setScale(cat.scale, cat.scale * (1 + 0.035 * Math.sin(time / 700)));
       if (time > (cat.nextZ ?? 0)) {
         cat.nextZ = time + 1400;
-        this.fx.z.emitParticleAt(cat.x + 3, cat.y - 8, 1);
+        // z'ler başın üstünden (baş baktığı tarafta)
+        this.fx.z.emitParticleAt(cat.x + (cat.faceLeft ? -4 : 4), cat.y - 8, 1);
       }
     }
     const x = Math.round(cat.x);
     const y = Math.round(cat.y);
-    cat.sprite.setPosition(x, y).setDepth(cat.y - 2);
-    cat.shadow.setPosition(x, y).setDepth(cat.y - 2.1);
+    // Zıplarken gölge yerde kalır ve küçülür
+    const shade = 1 + cat.hop / 18;
+    cat.sprite.setPosition(x, y + Math.round(cat.hop)).setDepth(cat.y - 2);
+    cat.shadow.setPosition(x, y).setDepth(cat.y - 2.1).setScale(0.85 * shade, 0.7 * shade);
   }
 
-  // Fırfır'ın sıradaki işi. Geçişler sıralı: oturma → uyku → gerinme → ayakta; otururken arada patisini yalar.
+  // Fırfır'ın sıradaki işi. Geçişler sıralı: oturma → uyku → gerinme → ayakta; otururken arada patisini yalar,
+  // ayaktayken ender olarak sıçrar. Hareket azaltılmışsa daha az dolaşır, sıçramaz, gerinmede esnemez.
   catThink(time) {
     const cat = this.cat;
     const roll = Math.random();
+    const calm = this.reducedMotion;
     const walkTo = (tile) => {
       const tiles = findPath(tileAt(cat.x, cat.y - 3), tile);
       if (!tiles?.length) return false;
       cat.path = smoothPath(cat, tiles.map((t) => tileCenter(t.c, t.r)));
       cat.mode = 'walk';
       cat.phase = 0;
-      cat.sprite.setFlipX(false);
       return true;
     };
-    const sitDown = (min, max) => {
-      cat.mode = 'sit';
-      cat.thinkAt = time + Phaser.Math.Between(min, max);
-      cat.sprite.setFlipX(false);
-      this.drawCat('sit');
-    };
+    const sitDown = (min, max) => this.catSit(time, min, max);
+    this.stopCatTween();
+    cat.onArrive = null;
     cat.thinkAt = time + 2000;
     if (cat.mode === 'sleep') {
       // Uyanınca önce gerinir
-      cat.mode = 'stretch';
-      cat.thinkAt = time + 1400;
-      cat.sprite.setFlipX(false);
-      this.drawCat('stretch');
+      this.catStretch(time);
     } else if (cat.mode === 'belly' || cat.mode === 'groom') {
       sitDown(1500, 3000);
-    } else if (cat.mode === 'sit' && roll < 0.3) {
+    } else if (cat.mode === 'sit' && roll < 0.25) {
       cat.mode = 'sleep';
       cat.thinkAt = time + Phaser.Math.Between(8000, 14000);
       this.drawCat('sleep');
-    } else if (cat.mode === 'sit' && roll < 0.6) {
+    } else if (cat.mode === 'sit' && roll < 0.5) {
       cat.mode = 'groom';
       cat.thinkAt = time + Phaser.Math.Between(2200, 3600);
-    } else if (roll < 0.5) {
-      walkTo(randomFreeTile());
-    } else if (roll < 0.72) {
-      // karakterin yanına gel
+      this.drawCat('groom');
+    } else if ((cat.mode === 'idle' || cat.mode === 'stretch') && !calm && roll < 0.14 && time > (cat.pounceAt ?? 0) && this.catPounce()) {
+      // ender sıçrama (catPounce kurar; önü arkası kapalıysa aşağıdaki seçeneklere düşer); arka arkaya olmaz
+      cat.pounceAt = time + 25000;
+    } else if (cat.mode === 'sit' ? roll < (calm ? 0.65 : 0.8) : roll < (calm ? 0.3 : 0.5)) {
+      // dolaş (otururken de kalkıp gidebilir)
+      // En az 3 karelik bir hedef ara (kısa kımıldanmalar takılma gibi görünüyordu); bulamazsa otur
+      const here = tileAt(cat.x, cat.y - 3);
+      let moved = false;
+      for (let i = 0; i < 6 && !moved; i++) {
+        const t = randomFreeTile();
+        if (Math.abs(t.c - here.c) + Math.abs(t.r - here.r) >= 3) moved = walkTo(t);
+      }
+      if (!moved) sitDown(3000, 6000);
+    } else if (roll < (cat.mode === 'sit' ? 0.9 : 0.72)) {
+      // karakterin yanına gel; zaten yanındaysa ona dönüp oturur
+      if (Math.hypot(this.px - cat.x, this.py - cat.y) < 24) {
+        if (Math.abs(this.px - cat.x) > 1) cat.faceLeft = this.px < cat.x;
+        sitDown(4000, 8000);
+        return;
+      }
       const mine = tileAt(this.px, this.py - 3);
       const spots = [
         [2, 0],
         [-2, 0],
         [0, 2],
-        [2, 2],
-        [-2, 2],
+        [2, 1],
+        [-2, 1],
       ]
         .map(([dc, dr]) => ({ c: mine.c + dc, r: mine.r + dr }))
         .filter((t) => isFree(t.c, t.r));
-      if (!spots.length || !walkTo(Phaser.Utils.Array.GetRandom(spots))) sitDown(3000, 6000);
+      if (spots.length && walkTo(Phaser.Utils.Array.GetRandom(spots))) cat.onArrive = 'player';
+      else sitDown(3000, 6000);
     } else {
       sitDown(4000, 8000);
     }
@@ -862,7 +1069,8 @@ export default class RoomScene extends Phaser.Scene {
       }
     }
     const catDist = Math.hypot(this.cat.x - this.px, this.cat.y - this.py);
-    if (catDist < Math.min(bestDist, 12)) return { id: 'cat', kind: 'cat', secret: 'cat' };
+    // 18: yanına gelip oturduğu yer (2 kare) de erişimde
+    if (catDist < Math.min(bestDist, 18)) return { id: 'cat', kind: 'cat', secret: 'cat' };
     return best;
   }
 
@@ -915,17 +1123,20 @@ export default class RoomScene extends Phaser.Scene {
         this.sayOnce(target.id);
         break;
       case 'strum':
+        this.strum();
         sfx('strum');
         this.fx.note.emitParticleAt(mark.x, mark.y + 6, 4);
         this.sayOnce(target.id);
         break;
       case 'sip':
+        this.playOnce('sip');
         sfx('sip');
         this.steam.emitParticleAt(153, 97, 6);
         this.floatLabel(mark, pick(LABELS.sip));
         this.sayOnce(target.id);
         break;
       case 'water':
+        if (this.anims.exists('water')) this.playOnce('water'); // çizimi yok: yöne dokunmaz
         sfx('water');
         this.fx.drop.emitParticleAt(mark.x, mark.y + 2, 7);
         this.floatLabel(mark, pick(LABELS.water));
@@ -934,10 +1145,13 @@ export default class RoomScene extends Phaser.Scene {
       case 'cat':
         sfx(this.seen.has('cat') ? 'purr' : 'meow');
         this.fx.heart.emitParticleAt(this.cat.x, this.cat.y - 10, 3);
+        this.stopCatTween();
         this.cat.path = null;
+        this.cat.onArrive = null;
         this.cat.mode = 'belly';
         this.cat.speed = 0;
-        this.cat.sprite.setFlipX(false);
+        // başı sevenin tarafında
+        if (Math.abs(this.px - this.cat.x) > 1) this.cat.faceLeft = this.px < this.cat.x;
         this.cat.thinkAt = this.time.now + 3500;
         // Sevilince sırtüstü yatar
         this.drawCat('belly');
@@ -973,10 +1187,29 @@ export default class RoomScene extends Phaser.Scene {
     const x = target.id === 'bench' ? Phaser.Math.Clamp(this.px, 137, 174) : seat.x;
     this.pose = { type, x, y: seat.y, back: tileCenter(target.stand.c, target.stand.r) };
     this.facing = seat.dir;
-    this.drawPlayer(seat.dir, type);
+    if (this.useSheet) this.drawPose(seat.dir, type);
+    else this.drawPlayer(seat.dir, type);
     this.player.setPosition(Math.round(x), seat.y).setDepth(seat.y + 20);
     this.shadow.setVisible(false);
     if (type === 'lie') this.tweens.add({ targets: this.sleepShade, alpha: 0.3, duration: 900 });
+  }
+
+  // Gitar: duvardaki gitarın önünde, kendi taburesinde (çizimde) oturup kısa süre çalar; tuş/dokunma
+  // ya da süre dolunca kalkar. Şerit yoksa yalnız öne döner.
+  strum() {
+    if (!this.useSheet || !this.anims.exists('strum')) {
+      this.playOnce('strum');
+      return;
+    }
+    const now = this.time.now;
+    const pose = { type: 'strum', x: Math.round(this.px), y: Math.round(this.py), back: { x: this.px, y: this.py }, nextZ: now + 700, until: now + 3600 };
+    this.pose = pose;
+    this.facing = 'down';
+    this.action = null;
+    const p = this.player.setFlipX(false).setCrop();
+    if (this.reducedMotion) this.holdFrame('guitar0');
+    else p.play('strum');
+    p.setPosition(pose.x, pose.y).setDepth(pose.y);
   }
 
   standUp() {
@@ -988,6 +1221,7 @@ export default class RoomScene extends Phaser.Scene {
     this.px = this.pose.back.x;
     this.py = this.pose.back.y;
     this.pose = null;
+    if (this.useSheet) this.player.setCrop();
     this.cooldownUntil = this.time.now + 250;
   }
 
@@ -999,11 +1233,22 @@ export default class RoomScene extends Phaser.Scene {
     if (this.inputBlocked) return;
     if (this.pose) this.standUp();
     if (Math.hypot(this.cat.x - x, this.cat.y - 5 - y) < 8) {
-      // Fırfır'a dokunuldu: yanına yürü, sonra sev
+      // Fırfır'a dokunuldu: yanına yürü, sonra sev (yürüyor ya da sıçrıyorsa durup oturarak bekler)
+      if (this.cat.path || this.cat.mode === 'jump') {
+        this.stopCatTween();
+        this.cat.path = null;
+        this.cat.onArrive = null;
+        this.cat.speed = 0;
+        this.catSit(this.time.now, 5000, 6000);
+      }
+      // Önce kedinin oyuncu tarafındaki 2 kare yanı (1 kare yanında üst üste biniyorlardı)
       const near = tileAt(this.cat.x, this.cat.y - 3);
+      const side = this.px < this.cat.x ? -1 : 1;
       const spot = [
-        [1, 0],
-        [-1, 0],
+        [2 * side, 0],
+        [-2 * side, 0],
+        [side, 0],
+        [-side, 0],
         [0, 1],
         [0, -1],
         [0, 0],

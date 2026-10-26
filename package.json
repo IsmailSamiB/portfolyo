@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "images": "node scripts/optimize-images.mjs",
-    "qr": "node scripts/qr-site.mjs"
+    "qr": "node scripts/qr-site.mjs",
+    "player": "node scripts/player-sheet.mjs",
+    "firfir": "node scripts/firfir-sheet.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",

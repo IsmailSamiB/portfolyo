@@ -225,6 +225,13 @@
   }
 }
 
+/* Geniş masaüstünde simgeler tek sıra: duvar kâğıdının koyu gökyüzünde durur, şehir silüeti açıkta kalır */
+@media (min-width: 900px) and (min-height: 481px) {
+  .os-icons {
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  }
+}
+
 /* Proje penceresi açıkken: panel ekran yüksekliğini kullanır, masaüstü kalan alanı doldurur ve
    tek kaydırma alanı pencere gövdesidir (panel gövdesi ve masaüstü kaymaz). */
 .panel-body--projects:has(.os-win) {
@@ -294,7 +301,12 @@
   font-size: var(--fs-sm);
   line-height: 1.1;
   letter-spacing: var(--ls-data);
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+  text-shadow:
+    -2px 0 0 #0b1a1e,
+    2px 0 0 #0b1a1e,
+    0 -2px 0 #0b1a1e,
+    0 2px 0 #0b1a1e,
+    2px 2px 0 #0b1a1e;
 }
 
 .os-win-summary {
