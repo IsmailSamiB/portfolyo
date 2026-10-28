@@ -18,6 +18,7 @@ export default {
     contactCta: { tr: "Benimle iletişime geç", en: "Get in touch" },
     hintKeys: { tr: "WASD / ok tuşları: yürü · E: incele", en: "WASD / arrow keys: walk · E: inspect" },
     hintTouch: { tr: "Dokun: yürü · Objeye dokun: incele", en: "Tap: walk · Tap an object: inspect" },
+    droneLand: { tr: "İHA'yı indir", en: "Land the drone" },
     achievementTitle: { tr: "Tüm oda keşfedildi!", en: "Whole room explored!" },
     achievementText: { tr: "Her köşeye baktın. Sıradaki adım?", en: "You have seen every corner. Next step?" },
     dismiss: { tr: "Kapat", en: "Close" },

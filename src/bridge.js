@@ -8,6 +8,7 @@
 //   overlay:open  { id }             id: 'piano' | 'view' | 'postcard' | 'guestbook' | 'minigame'  (tura dahil olmayan ek paneller)
 //   interact      { id }             odada bir eşyaya her dokunuşta (metrikler için)
 //   secret:found  { id }             SECRETS içinden; aynı id birden çok kez gelebilir
+//   drone:state   { flying: boolean } mini İHA kalktı / inişe geçti (arayüz iniş düğmesini gösterir)
 //   project:open  { id }             bir proje ayrıntısı açıldığında (klasik kart/galeri, oyun içi pencere); metrikler oturumda bir kez sayar
 //
 // Arayüz -> Oyun
@@ -17,6 +18,7 @@
 //   ui:lock        { locked: boolean }   panel/diyalog/ek panel/açılış ekranı/klasik görünüm açıkken oyun girdisi durur
 //   tour:start     {}
 //   tour:stop      {}
+//   drone:land     {}                    iniş düğmesi (dokunmatikte E yerine)
 //   piano:note     { midi }              piyano panelinde çalınan her nota (oyun nota parçacığı çıkarır)
 //
 // Ortak

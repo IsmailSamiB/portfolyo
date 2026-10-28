@@ -21,7 +21,7 @@ import {
   tileCenter,
 } from '../game/room.js';
 import { PLAYER_TEXTURE, PLAYER_SCALE, PLAYER_ORIGIN, PLAYER_CELL, PLAYER_FRAMES, PLAYER_ANIMS, PLAYER_STILL } from '../game/player-frames.js';
-import { registerCatAnims, createCatSprite, setCatPose, catHasAnim, CAT_SCALE, CAT_WALK_STEP } from '../game/cat-anims.js';
+import { registerCatAnims, createCatSprite, setCatPose, catHasAnim, CAT_SCALE, CAT_WALK_STEP, CAT_WALK_STEP_DOWN, CAT_WALK_STEP_UP } from '../game/cat-anims.js';
 
 const SPEED = 55;
 const CAT_SPEED = 22;
@@ -29,7 +29,7 @@ const REACH = 14;
 const UI_DEPTH = 9500;
 const CANCELLED = Symbol('cancelled');
 
-// Yatakta: idle-down'ın gözü kapalı karesi, baş ve omuzlar görünür; hücre altından bu kadarı
+// Yatakta (uyku şeridi yoksa yedek): idle-down'ın gözü kapalı karesi, baş ve omuzlar görünür; hücre altından bu kadarı
 // (bacaklar, bel) kırpılır — ayak hücre altına hizalı, hücre boyu atlasla değişse de aynı yer
 const BED_FRAME = 'idle3';
 const BED_HIDE = 91;
@@ -341,10 +341,12 @@ export default class RoomScene extends Phaser.Scene {
     this.action = null;
     p.setFlipX(false);
     if (type === 'lie') {
-      // Uyku şeridi (sleep-bed) eklenirse o oynar; yoksa kırpılmış gözü kapalı kare
-      if (this.anims.exists('sleep-bed') && !this.reducedMotion) {
+      // Uyku şeridi (sleep-bed: yalnız karakter, odanın yatağına oturur) varsa o oynar (hareket azaltmada
+      // ilk karesi); yoksa kırpılmış gözü kapalı kare
+      if (this.anims.exists('sleep-bed')) {
         p.setCrop();
-        this.playAnim('sleep-bed');
+        if (this.reducedMotion) this.holdFrame(PLAYER_ANIMS['sleep-bed'].frames[0][0]);
+        else this.playAnim('sleep-bed');
         return;
       }
       this.holdFrame(BED_FRAME);
@@ -394,7 +396,8 @@ export default class RoomScene extends Phaser.Scene {
     this.drawCat('stand');
   }
 
-  // pose: 'side' | 'down' | 'up' (yürüme; index = adım) · 'air' (zıplama) · 'stand' · 'sit' · 'blink' · 'groom' · 'sleep' · 'stretch' · 'belly'
+  // pose: 'side' | 'down' | 'up' (yürüme; index = adım) · 'crouch' | 'air' | 'land' (sıçrama; index = evre ilerlemesi 0..1)
+  //   · 'stand' · 'sit' · 'blink' · 'groom' · 'sleep' · 'stretch' · 'belly'
   // Önden/arkadan yürüme şeridi yoksa down/up da yandan yürür; diğer pozlar animasyon (cat-anims.js).
   // Her pozda baktığı yön korunur (oturunca, uyurken, sevilirken de).
   drawCat(pose, index = 0) {
@@ -402,7 +405,7 @@ export default class RoomScene extends Phaser.Scene {
     cat.sprite.setFlipX(cat.faceLeft);
     if (!cat.sheet) {
       const step = index % 2 ? 'cat1' : 'cat0';
-      const key = { side: step, down: step, up: step, air: 'cat1', stand: 'cat0', sit: 'catSit', blink: 'catSit', groom: 'catSit', sleep: 'catSleep', stretch: 'cat0', belly: 'catSit' }[pose];
+      const key = { side: step, down: step, up: step, air: 'cat1', crouch: 'cat0', land: 'cat0', stand: 'cat0', sit: 'catSit', blink: 'catSit', groom: 'catSit', sleep: 'catSleep', stretch: 'cat0', belly: 'catSit' }[pose];
       cat.sprite.setTexture(key);
       return;
     }
@@ -462,7 +465,9 @@ export default class RoomScene extends Phaser.Scene {
       cat.mode = 'jump';
       cat.thinkAt = Infinity;
       const s = { t: 0 };
-      // 0-0.35 çömelme (popo kıpırdar) · 0.35-0.75 havada · 0.75-1 iniş
+      // Sıçrama şeridi varsa kareler çömelir/uzanır; yoksa yürüme karesi ölçekle basılıp esnetilir
+      const squash = !catHasAnim('jump');
+      // 0-0.35 çömelme (popo kıpırdar) · 0.35-0.75 havada (tepeye dek kalkış, sonra iniş karesi) · 0.75-1 iniş
       cat.tween = this.tweens.add({
         targets: s,
         t: 1,
@@ -476,7 +481,7 @@ export default class RoomScene extends Phaser.Scene {
             sx2 = 1 + 0.08 * c;
             sy = 1 - 0.14 * c;
             cat.x = fromX - (cat.faceLeft ? -1 : 1) * 0.4 * Math.sin(t * 60) * c;
-            this.drawCat('side', 0);
+            this.drawCat('crouch', t / 0.35);
           } else if (t < 0.75) {
             const u = (t - 0.35) / 0.4;
             cat.x = fromX + (toX - fromX) * u;
@@ -490,9 +495,9 @@ export default class RoomScene extends Phaser.Scene {
             cat.hop = 0;
             sx2 = 1 + 0.06 * (1 - u);
             sy = 1 - 0.12 * (1 - u);
-            this.drawCat('side', 2);
+            this.drawCat('land', u);
           }
-          cat.sprite.setScale(CAT_SCALE * sx2, CAT_SCALE * sy);
+          if (squash) cat.sprite.setScale(CAT_SCALE * sx2, CAT_SCALE * sy);
         },
         onComplete: () => {
           this.stopCatTween();
@@ -569,6 +574,10 @@ export default class RoomScene extends Phaser.Scene {
       }),
       on('overlay:closed', ({ id }) => {
         if (id === 'piano' && this.pose) this.standUp();
+      }),
+      // Arayüzdeki iniş düğmesi (dokunmatikte E tuşu yok)
+      on('drone:land', () => {
+        if (this.flight && !this.locked && this.time.now > this.flight.startedAt + 400) this.endFlight();
       }),
       on('piano:note', () => this.fx.note.emitParticleAt(22 + Phaser.Math.Between(-8, 8), 92, 1)),
       on('lang:changed', () => this.fitCamera()), // HUD satır sayısı dile göre değişebilir
@@ -714,8 +723,9 @@ export default class RoomScene extends Phaser.Scene {
     if (this.pose) {
       if (vx || vy || act) {
         this.standUp();
+        if (this.pose) return; // yatakta uyanıyor: animasyon bitince kalkar
       } else {
-        if (this.pose.type === 'lie' && time > (this.pose.nextZ ?? 0)) {
+        if (this.pose.type === 'lie' && !this.pose.waking && time > (this.pose.nextZ ?? 0)) {
           this.pose.nextZ = time + 900;
           this.fx.z.emitParticleAt(this.pose.x + 4, this.pose.y - 18, 1);
         }
@@ -836,10 +846,11 @@ export default class RoomScene extends Phaser.Scene {
       const ay = Math.abs(dy);
       const sideways = cat.dir === 'side' ? ax * 1.5 >= ay : ax > ay * 1.5;
       cat.dir = sideways ? 'side' : dy < 0 ? 'up' : 'down';
-      // Hep yandan yürür: yatay bileşene göre döner, tam dikeyde son yatay yönünü korur
-      if (ax > 0.01) cat.faceLeft = dx < 0;
+      // Yandan yürürken yatay bileşene göre döner; önden/arkadan yürürken son yatay yönünü korur
+      // (küçük yatay sapmada önden/arkadan kare aynalanıp kuyruk yer değiştirmesin)
+      if (ax > 0.01 && (sideways || !catHasAnim(cat.dir === 'up' ? 'walk-up' : 'walk-down'))) cat.faceLeft = dx < 0;
       // Kare, kat edilen mesafeye bağlı: patiler zeminde kaymaz
-      cat.phase += Math.min(step, dist) / CAT_WALK_STEP;
+      cat.phase += Math.min(step, dist) / (cat.dir === 'down' ? CAT_WALK_STEP_DOWN : cat.dir === 'up' ? CAT_WALK_STEP_UP : CAT_WALK_STEP);
       this.drawCat(cat.dir, Math.floor(cat.phase));
       if (!cat.path.length) {
         cat.speed = 0;
@@ -964,7 +975,8 @@ export default class RoomScene extends Phaser.Scene {
     this.flight = { x, y: base, alt: 0, target: null, startedAt: this.time.now, until: this.time.now + 20000, nextBuzz: 0, landing: false };
     drone.barBack.setVisible(true);
     drone.bar.setVisible(true);
-    this.floatLabel({ x, y: base - 16 }, pick(LABELS.droneStart));
+    this.floatLabel({ x, y: base - 16 }, pick(this.touchUser ? LABELS.droneStartTouch : LABELS.droneStart));
+    emit('drone:state', { flying: true });
   }
 
   updateFlight(dt, time) {
@@ -1022,6 +1034,7 @@ export default class RoomScene extends Phaser.Scene {
     const drone = this.props.drone;
     if (!flight || flight.landing) return;
     flight.landing = true;
+    emit('drone:state', { flying: false });
     drone.barBack.setVisible(false);
     drone.bar.setVisible(false);
     const { x, base } = drone.def;
@@ -1212,8 +1225,23 @@ export default class RoomScene extends Phaser.Scene {
     p.setPosition(pose.x, pose.y).setDepth(pose.y);
   }
 
-  standUp() {
+  // instant: uyanış animasyonu olmadan hemen kalk (tur başlarken)
+  standUp(instant = false) {
     if (!this.pose) return;
+    // Yataktan önce uyanır (gözler açılır, esner, gerinir, gülümser), animasyon bitince kalkar; bu sırada
+    // tuş/dokunma yeniden başlatmaz (dokunmayla verilen yol uyanış bitince yürünür)
+    if (this.pose.type === 'lie' && !instant && this.useSheet && this.anims.exists('wake-bed') && !this.reducedMotion) {
+      if (this.pose.waking) return;
+      this.pose.waking = true;
+      this.tweens.killTweensOf(this.sleepShade);
+      this.tweens.add({ targets: this.sleepShade, alpha: 0, duration: 900 });
+      const done = 'animationcomplete-wake-bed';
+      this.player.off(done).once(done, () => {
+        if (this.pose?.waking) this.standUp(true);
+      });
+      this.player.play('wake-bed');
+      return;
+    }
     if (this.pose.type === 'lie') {
       this.tweens.killTweensOf(this.sleepShade);
       this.tweens.add({ targets: this.sleepShade, alpha: 0, duration: 400 });
@@ -1226,6 +1254,7 @@ export default class RoomScene extends Phaser.Scene {
   }
 
   handleTap(x, y, touch = false) {
+    this.touchUser = touch; // son girdi dokunma mı (İHA ipucu metni buna göre)
     if (this.flight) {
       if (!this.locked && !this.flight.landing) this.flight.target = { x, y: y + 13 };
       return;
@@ -1316,7 +1345,7 @@ export default class RoomScene extends Phaser.Scene {
     const tour = { cancel: null, panel: null };
     this.tour = tour;
     this.endFlight(true);
-    this.standUp();
+    this.standUp(true);
     this.clearPath();
     emit('tour:state', { active: true });
 

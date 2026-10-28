@@ -19,6 +19,7 @@ let brownBuf = null;
 let muted = null; // null: tercih henüz okunmadı
 let ambWanted = false;
 let amb = null; // çalışan ambiyans: { src, gain, timer }
+let droneBase = 148; // drone uğultusunun yavaşça kayan perdesi (Hz)
 const stringCache = new Map(); // Karplus-Strong tel tamponları
 
 // ---------- Tercih ----------
@@ -409,35 +410,38 @@ const SFX = {
     tone({ type: 'square', f: 1318.51, t: t + 0.07, attack: 0.004, decay: 0.17, peak: 0.04 }); // E6
   },
 
-  // Dört pervaneli küçük drone vızıltısı (~0,6 sn); 0,5 sn arayla art arda çağrılınca kesintisiz duyulur
+  // Dört pervaneli küçük drone uğultusu (~0,6 sn); 0,5 sn arayla art arda çağrılınca kesintisiz duyulur.
+  // Yumuşak üçgen dalga, alçak geçiren süzgeç ve düşük seviye; perde çağrılar arasında yavaşça kayar
+  // (her çağrıda yeni rastgele perde ardışık sesler arasında rahatsız edici vuru yapıyordu).
   drone(t) {
     const dur = 0.6;
-    const base = rand(142, 158);
-    const bp = filter('bandpass', 620, 1.4);
+    droneBase += (rand(140, 156) - droneBase) * 0.15;
+    const base = droneBase;
+    const lp = filter('lowpass', 900, 0.5);
     const g = ctx.createGain();
     // Uçlar doğrusal ve 0,1 sn: ardışık çağrılar çapraz geçişle toplamda sabit seviyede kalır
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.05, t + 0.1);
-    g.gain.setValueAtTime(0.05, t + dur - 0.1);
+    g.gain.linearRampToValueAtTime(0.022, t + 0.1);
+    g.gain.setValueAtTime(0.022, t + dur - 0.1);
     g.gain.linearRampToValueAtTime(0, t + dur);
-    bp.connect(g);
+    lp.connect(g);
     g.connect(sfxBus);
 
-    // Hafif perde dalgalanması: ~7 Hz LFO, ±18 sent
+    // Hafif perde dalgalanması: ~6 Hz LFO, ±6 sent
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.value = rand(6, 8);
+    lfo.frequency.value = 6;
     const depth = ctx.createGain();
-    depth.gain.value = 18;
+    depth.gain.value = 6;
     lfo.connect(depth);
 
-    for (const detune of [-9, 9]) {
+    for (const detune of [-4, 4]) {
       const osc = ctx.createOscillator();
-      osc.type = 'sawtooth';
+      osc.type = 'triangle';
       osc.frequency.value = base;
       osc.detune.value = detune;
       depth.connect(osc.detune);
-      osc.connect(bp);
+      osc.connect(lp);
       osc.start(t);
       osc.stop(t + dur + 0.03);
     }

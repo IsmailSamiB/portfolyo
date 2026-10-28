@@ -74,6 +74,7 @@ export const LABELS = {
   sip: { tr: 'Bir yudum kahve', en: 'A sip of coffee' },
   water: { tr: 'Çiçek sulandı', en: 'Plant watered' },
   droneStart: { tr: 'Uçuş modu · yön tuşlarıyla uç, E ile in', en: 'Flight mode · arrows to fly, E to land' },
+  droneStartTouch: { tr: 'Dokunduğun yere uçar', en: 'Tap to fly there' },
   droneEnd: { tr: 'İniş tamam', en: 'Landed' },
 };
 

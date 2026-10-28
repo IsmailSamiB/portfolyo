@@ -48,7 +48,9 @@ const ANIMS = {
   strum: { row: 'guitar', seq: [0, 1, 2, 1, 3, 4, 1, 2, 5, 6, 1, 7], ms: [260, 200, 200, 200, 380, 380, 200, 200, 420, 260, 200, 520] },
   // kahve: 0 tutuyor, 1 kaldırıyor, 2 ağızda, 3/4 yudum (gözler kapalı), 5 indiriyor, 6 tutuyor, 7 gülümseme
   sip: { row: 'coffee', seq: [0, 1, 2, 3, 4, 5, 6, 7], ms: [450, 200, 220, 600, 350, 220, 350, 900], once: true },
-  'sleep-bed': { row: 'sleep', seq: [0, 1, 2, 3, 4, 5, 6, 7], ms: 600 },
+  // yatakta uyku (nefes, ileri-geri döngü) ve uyanış: 0-1 gözler açılıyor, 2-3 esneme, 4 gerinme, 5 gülümseme
+  'sleep-bed': { row: 'sleep', seq: [0, 1, 2, 3, 4, 5, 4, 3, 2, 1], ms: [700, 550, 550, 600, 650, 750, 650, 600, 550, 550] },
+  'wake-bed': { row: 'wake', seq: [0, 1, 2, 3, 4, 5], ms: [350, 450, 400, 400, 700, 900], once: true },
 };
 // Hareket azaltma açıkken / tek kare gereken yerde durma karesi (her yönün bekleme animasyonunun ilk karesi)
 const STILL_ANIMS = { down: 'idle-down', up: 'idle-up', side: 'idle-side' };
@@ -75,8 +77,13 @@ const ROWS = [
   // önden: taburede gitar çalma (oturan) ve ayakta kahve yudumlama
   { name: 'guitar', file: 'gemini-gitar-6.png', row: 0, view: 'front', pose: 'seat', optional: true },
   { name: 'coffee', file: 'gemini-gitar-6.png', row: 1, view: 'front', pose: 'stand', optional: true },
-  // henüz çizilmemiş olabilir: yatakta uyku (gemini-uyku-*.png ile eşleşen ilk dosya, ilk satır, 8 kare)
-  { name: 'sleep', file: firstFile(/^gemini-uyku-.*\.png$/), row: 0, view: 'front', pose: 'seat', optional: true },
+  // yatakta uyku/uyanış (gemini-uyku-*.png ile eşleşen ilk dosya, 2 satır x 6 kare). Çizimde kendi yatağı var:
+  // bed -> yalnız karakter (baş, gövde, kollar) kesilir, odanın yatağının üstüne biner; iki satır aynı ölçek
+  // (scaleFrom) ve yatak kutusuna göre aynı hizada (kareler arasında kaymaz)
+  { name: 'sleep', file: firstFile(/^gemini-uyku-.*\.png$/), row: 0, view: 'front', pose: 'seat', optional: true, count: 6, bed: true },
+  // gerinme karesinde (4) çizimdeki yorgan beline inmiş; gövde diğer karelerin yorgan çizgisinde kesilir
+  // (yatak boyunun ~%42'si), yoksa odanın yorganı üstünde yarım gövde gibi duruyor
+  { name: 'wake', file: firstFile(/^gemini-uyku-.*\.png$/), row: 1, view: 'front', pose: 'seat', optional: true, count: 6, bed: true, scaleFrom: 'sleep', blanket: { 4: 0.42 } },
 ];
 
 // ---------- temizlik ----------
@@ -236,6 +243,104 @@ async function cropFrame(img, seg) {
   return { buf, w, h };
 }
 
+// Yataklı karede yalnız karakteri bırakır: mavi yorgan, beyaz yastık/çarşaf (mavimsi-nötr renkler) ve
+// başlık/ayak/direklerdeki ahşap atılır; karakter yüzün ortasından taşma dolgusuyla bulunur.
+// Döner: yatak kutusunun orta x'i ve üst y'si (satırdaki kareleri hizalamak için)
+function bedMask(f, blanket) {
+  const { buf, w, h } = f;
+  const box = measure(buf, w, h);
+  const bw = box.right - box.left + 1, bh = box.bot - box.top + 1;
+  const lum = (i) => 0.3 * buf[i] + 0.59 * buf[i + 1] + 0.11 * buf[i + 2];
+  // ahşap bölgesi: başlık bandı, iki yan direk ve yorganın altı (karakter oraya inmez)
+  const zone = (x, y) => y - box.top < bh * 0.135 || x - box.left < bw * 0.15 || box.right - x < bw * 0.15;
+  const bed = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = y * w + x, i = p * 4;
+    const r = buf[i], b = buf[i + 2];
+    // mavimsi/nötr (yorgan, yastık gölgesi) ve sıcak beyaz (yastık parlaklığı; tişört r-b ~60) atılır
+    if (!buf[i + 3] || y - box.top > bh * 0.7 || b >= r - 8 || (lum(i) > 200 && r - b < 25)) bed[p] = 1;
+    // ahşap bölgesinde (ölçüm: ahşap parlaklık 75-150, doygun; saç 30-60, az doygun; ten r > 170)
+    // ahşap ve en koyu dış çizgiler atılır; saçın koyu pikselleri boşluk doldurmayla geri gelir
+    else if (zone(x, y)) {
+      const l = lum(i), sat = (r - b) / r;
+      if (l < 35 || (r < 165 && ((l >= 40 && sat >= 0.55) || (l >= 72 && sat >= 0.5)))) bed[p] = 1;
+    }
+  }
+  // taşma dolgusu: yüz ortasına en yakın karakter pikselinden
+  const mask = new Uint8Array(w * h);
+  const cx = Math.round((box.left + box.right) / 2), cy = Math.round(box.top + bh * 0.25);
+  let seed = -1;
+  for (let d = 0; d < 30 && seed < 0; d++) for (const [dx, dy] of [[0, d], [0, -d], [d, 0], [-d, 0]]) {
+    const p = (cy + dy) * w + cx + dx;
+    if (!bed[p]) { seed = p; break; }
+  }
+  if (seed < 0) throw new Error('yatak karesinde karakter bulunamadı');
+  const flood = (block) => {
+    mask.fill(0);
+    const stack = [seed];
+    mask[seed] = 1;
+    while (stack.length) {
+      const q = stack.pop();
+      const x = q % w;
+      for (const n of [q - w, q + w, x > 0 ? q - 1 : -1, x < w - 1 ? q + 1 : -1]) {
+        if (n < 0 || n >= w * h || mask[n] || block[n]) continue;
+        mask[n] = 1;
+        stack.push(n);
+      }
+    }
+  };
+  flood(bed);
+  // ahşap bölgesinde saça bağlanan ince çizgiler (başlığın dış çizgileri) budanır: 5x5 komşulukta seyrek olanlar
+  for (let pass = 0; pass < 2; pass++) {
+    const thin = [];
+    for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
+      const p = y * w + x;
+      if (!mask[p] || !zone(x, y)) continue;
+      let c = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) c += mask[p + dy * w + dx];
+      if (c < 13) thin.push(p);
+    }
+    for (const p of thin) bed[p] = 1;
+    flood(bed);
+  }
+  // karakterin içindeki küçük boşluklar (göz akı, diş, koyu saç gölgesi) doldurulur; yastığa açılanlar kalır
+  const seen = new Uint8Array(w * h);
+  for (let p = 0; p < w * h; p++) {
+    if (mask[p] || seen[p]) continue;
+    const comp = [p];
+    seen[p] = 1;
+    let edge = false;
+    for (let k = 0; k < comp.length; k++) {
+      const q = comp[k], x = q % w, y = (q - x) / w;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) edge = true;
+      for (const n of [q - w, q + w, x > 0 ? q - 1 : -1, x < w - 1 ? q + 1 : -1]) {
+        if (n < 0 || n >= w * h || mask[n] || seen[n]) continue;
+        seen[n] = 1;
+        comp.push(n);
+      }
+    }
+    // yumruk-kol arasına sıkışan yastık parçası (açık mavimsi, büyükçe) boşluk sayılmaz
+    const pale = comp.filter((q) => buf[q * 4 + 3] && buf[q * 4 + 2] >= buf[q * 4] - 8 && lum(q * 4) > 150).length;
+    // açık pikseller (göz akı, diş) yalnız yüzün ortasında geri gelir; kol/yumruk kenarındakiler yastıktır
+    const isPale = (q) => lum(q * 4) > 150 && buf[q * 4] - buf[q * 4 + 2] < 25;
+    if (!edge && comp.length < 200 && !(comp.length >= 30 && pale > comp.length / 2)) {
+      for (const q of comp) if (buf[q * 4 + 3] && !(isPale(q) && Math.abs((q % w) - cx) > bw * 0.22)) mask[q] = 1;
+    }
+  }
+  // 1 px koyu dış çizgi geri eklenir (saçın üstü ahşapla birlikte atılmıştı)
+  const add = [];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const p = y * w + x;
+    if (mask[p] || !buf[p * 4 + 3] || lum(p * 4) >= 60) continue;
+    if (mask[p - 1] || mask[p + 1] || mask[p - w] || mask[p + w]) add.push(p);
+  }
+  for (const p of add) mask[p] = 1;
+  // yorgan çizgisi verildiyse altı atılır
+  if (blanket) mask.fill(0, (box.top + Math.round(bh * blanket)) * w);
+  for (let p = 0; p < w * h; p++) if (!mask[p]) buf[p * 4] = buf[p * 4 + 1] = buf[p * 4 + 2] = buf[p * 4 + 3] = 0;
+  return { cx: (box.left + box.right) / 2, top: box.top };
+}
+
 async function scaleFrame(f, k) {
   if (Math.abs(k - 1) < 0.01) return f;
   const w = Math.round(f.w * k), h = Math.round(f.h * k);
@@ -258,7 +363,7 @@ for (const def of ROWS) {
   }
   const img = imgs[def.file];
   const segs = img.segs[def.row];
-  if (!segs || segs.length !== 8) {
+  if (!segs || segs.length !== (def.count ?? 8)) {
     if (def.optional) { console.warn(`ATLANDI ${def.file} satır ${def.row}: ${segs?.length} kare`); continue; }
     throw new Error(`${def.file} satır ${def.row}: ${segs?.length} kare`);
   }
@@ -266,7 +371,8 @@ for (const def of ROWS) {
   for (const [i, seg] of segs.entries()) {
     if (def.keep && !def.keep.includes(i)) continue;
     const f = await cropFrame(img, seg);
-    frames.push({ ...f, src: i, m: measure(f.buf, f.w, f.h) });
+    const anchor = def.bed ? bedMask(f, def.blanket?.[i]) : null;
+    frames.push({ ...f, src: i, anchor, m: measure(f.buf, f.w, f.h) });
   }
   rows.push({ ...def, frames });
 }
@@ -280,11 +386,19 @@ for (const r of rows) {
   if (r.view !== 'side') (headAt[r.view] ??= []).push(median(r.frames.map((f) => f.m.headW)) * r.k);
 }
 for (const r of rows) {
-  if (r.pose === 'seat') r.k = median(headAt[r.view]) / median(r.frames.map((f) => f.m.headW));
+  if (r.pose === 'seat') r.k = r.scaleFrom ? rows.find((x) => x.name === r.scaleFrom).k : median(headAt[r.view]) / median(r.frames.map((f) => f.m.headW));
   for (const [i, f] of r.frames.entries()) {
     const s = await scaleFrame(f, r.k);
     r.frames[i] = { ...s, src: f.src, m: measure(s.buf, s.w, s.h) };
+    // Yataklı kareler: hücre ortası yatak ortası, "ayak" çizgisi yatak üstünden sabit uzaklıkta (aşağıda)
+    if (f.anchor) Object.assign(r.frames[i].m, { headC: f.anchor.cx * r.k, bedTop: f.anchor.top * r.k });
   }
+}
+// Yatak satırları (uyku, uyanış) aynı yere oturmalı: ortak "ayak" uzaklığı (en alttaki pikselden)
+const bedRows = rows.filter((r) => r.bed);
+if (bedRows.length) {
+  const depth = Math.max(...bedRows.flatMap((r) => r.frames.map((f) => f.m.bot - f.m.bedTop)));
+  for (const r of bedRows) for (const f of r.frames) f.m.bot = Math.round(f.m.bedTop + depth);
 }
 
 // Hücre: baş merkezi hücre ortasında, ayak tabanı hücre altından PAD yukarıda

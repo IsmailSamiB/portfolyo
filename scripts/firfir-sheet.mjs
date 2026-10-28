@@ -22,6 +22,7 @@ const PAD = 3; // hücre kenar payı
 const COLS = 6;
 
 // Kaynak satırları. keep: kullanılacak kareler · align: yatay hiza bandı (boyun oranı olarak, üstten)
+// scale: kaynak sayfa kediyi farklı boyda çizdiyse kare bu oranla büyütülür
 const ROWS = [
   { name: 'walk', file: 'gemini-kedi-1.png', row: 0, keep: [1, 2, 3, 4, 5], align: [0.45, 0.72] },
   { name: 'stand', file: 'gemini-kedi-1.png', row: 2, align: [0.45, 0.72] },
@@ -30,12 +31,15 @@ const ROWS = [
   { name: 'groom', file: 'gemini-kedi-2.png', row: 1, align: [0.75, 1] },
   { name: 'sleep', file: 'gemini-kedi-2.png', row: 2, align: [0, 1] },
   { name: 'belly', file: 'gemini-kedi-2.png', row: 3, keep: [0, 1, 2, 3], align: [0.5, 1] },
-  // İsteğe bağlı şeritler (dosya yoksa atlanır). Yeni Gemini sayfası gelince satır/kare düzenine göre açılır;
-  // cat-anims.js 'stretch', 'jump', 'walk-down', 'walk-up' anahtarlarını bulursa kullanır.
-  // { name: 'stretch', file: 'gemini-kedi-3.png', row: 0, align: [0.45, 0.72], optional: true },
-  // { name: 'jump', file: 'gemini-kedi-3.png', row: 1, align: [0.45, 0.72], optional: true },
-  // { name: 'front', file: 'gemini-kedi-4.png', row: 0, align: [0.3, 1], optional: true },
-  // { name: 'back', file: 'gemini-kedi-4.png', row: 1, align: [0.3, 1], optional: true },
+  // İsteğe bağlı şeritler (dosya yoksa atlanır); cat-anims.js 'stretch', 'jump', 'walk-down', 'walk-up' anahtarlarını bulursa kullanır.
+  // gemini-kedi-3: yan şeritler yürüme ile aynı boyda; önden/arkadan şeritlerde kedi küçük çizilmiş
+  //   (baş genişliği ~56 px, önden oturmada ~63 px) -> 1.12 büyütülür.
+  { name: 'stretch', file: 'gemini-kedi-3.png', row: 0, align: [0.45, 0.72], optional: true },
+  { name: 'jump', file: 'gemini-kedi-3.png', row: 1, align: [0.45, 0.72], optional: true },
+  // önden yürüme: sol pati kalkık 0, 3 · sağ pati kalkık 1, 2, 4, 5 -> 0, 2, 3, 5 sırayla adım
+  { name: 'front', file: 'gemini-kedi-3.png', row: 2, keep: [0, 2, 3, 5], align: [0.55, 1], scale: 1.12, optional: true },
+  // arkadan yürüme: 0 ve 5'te gövde dümdüz, kuyruk ucu sağa kıvrık (1-4'te sola): atıldı; 4, 1'in eşi
+  { name: 'back', file: 'gemini-kedi-3.png', row: 3, keep: [1, 2, 3], align: [0.6, 1], scale: 1.12, optional: true },
 ].filter((r) => !r.optional || existsSync(path.join(src, r.file)));
 
 // Animasyonlar: satır, kaynak kare sırası, kare süresi (ms; tek sayı ya da liste; hepsi ≤ 800: hiçbir kare 1 sn donuk kalmaz)
@@ -43,6 +47,8 @@ const ROWS = [
 //   2 yakın ön pati havada öne gelir. 0, 4'ün kopyası ve 0->1 geçişinde pati geri kayıyordu: atıldı.
 //   Basan pati kare başına ~20 doku px (~1.9 dünya px) geri gider -> WALK_STEP.
 const WALK_STEP = 1.9;
+// Önden/arkadan: adım boyu yandan yürüme ile aynı (döngü 5 x 1.9 ~ 9.5 px, iki adım); döngü 4 kare -> kare başına ~2.4
+const WALK_STEP_V = 2.4;
 const ANIMS = {
   walk: { row: 'walk', seq: [3, 4, 5, 1, 2], ms: 1000 / (22 / WALK_STEP) },
   'idle-stand': { row: 'stand', seq: [0, 1, 2, 1, 0, 3, 4, 5], ms: [760, 120, 160, 120, 700, 450, 600, 800] },
@@ -51,10 +57,14 @@ const ANIMS = {
   sleep: { row: 'sleep', seq: [0, 1, 2, 3, 4, 5, 4, 3, 2, 1], ms: 420 },
   belly: { row: 'belly', seq: [0, 1, 2, 3, 2, 1], ms: 260 },
   // isteğe bağlı satırlar (yukarıdaki ROWS ile birlikte açılır)
-  stretch: { row: 'stretch', seq: [0, 1, 2, 3, 4, 5], ms: [200, 200, 260, 500, 260, 200] },
-  jump: { row: 'jump', seq: [0, 1, 2], ms: 140 },
-  'walk-down': { row: 'front', seq: [0, 1, 2, 3, 4, 5], ms: 90 },
-  'walk-up': { row: 'back', seq: [0, 1, 2, 3, 4, 5], ms: 90 },
+  // gerinme: 2 (göğüs yerde) en uzun; toplam ~1.5 sn, catStretch'in 1.4 sn'lik süresine sığar
+  stretch: { row: 'stretch', seq: [0, 1, 2, 3, 4, 5], ms: [100, 220, 540, 260, 180, 200] },
+  // sıçrama: 0-1 çömelme, 2 kalkış, 3 havada/inişe uzanma, 4 konma, 5 ayakta. Oynatılmaz: RoomScene.catPounce
+  //   tween ilerlemesine göre kare seçer (cat-anims.js 'crouch' / 'air' / 'land'); süreler yalnızca liste için
+  jump: { row: 'jump', seq: [0, 1, 2, 3, 4, 5], ms: 140 },
+  // önden/arkadan yürüme: döngüde her pati bir kez adım atar (4 kare); kare süresi WALK_STEP_V ile
+  'walk-down': { row: 'front', seq: [0, 2, 3, 5], ms: 1000 / (22 / WALK_STEP_V) },
+  'walk-up': { row: 'back', seq: [1, 2, 3, 2], ms: 1000 / (22 / WALK_STEP_V) },
 };
 
 // ---------- temizlik (player-sheet.mjs ile aynı yöntem) ----------
@@ -208,6 +218,17 @@ function cropFrame(img, seg) {
   return { buf, w, h };
 }
 
+// Kareyi büyütür; kenar alfası yeniden ikili yapılır (diğer karelerle aynı keskin kenar)
+async function scaleFrame(f, k) {
+  const w = Math.round(f.w * k), h = Math.round(f.h * k);
+  const buf = await sharp(f.buf, { raw: { width: f.w, height: f.h, channels: 4 } }).resize(w, h, { kernel: 'lanczos3' }).raw().toBuffer();
+  for (let i = 0; i < buf.length; i += 4) {
+    if (buf[i + 3] < 128) buf[i] = buf[i + 1] = buf[i + 2] = buf[i + 3] = 0;
+    else buf[i + 3] = 255;
+  }
+  return { buf, w, h };
+}
+
 // ---------- ana akış ----------
 
 const imgs = {};
@@ -223,7 +244,7 @@ for (const def of ROWS) {
   const frames = [];
   for (const [i, seg] of segs.entries()) {
     if (def.keep && !def.keep.includes(i)) continue;
-    const f = cropFrame(img, seg);
+    const f = def.scale ? await scaleFrame(cropFrame(img, seg), def.scale) : cropFrame(img, seg);
     frames.push({ ...f, src: i, m: measure(f.buf, f.w, f.h, def.align) });
   }
   rows.push({ ...def, frames });
@@ -308,6 +329,7 @@ export const CAT_TEXTURE = 'firfir2';
 export const CAT_URL = 'assets/sprites/firfir-v2.webp';
 export const CAT_SCALE = ${SCALE};
 export const CAT_WALK_STEP = ${WALK_STEP}; // yürüme karesi başına dünya px (ayak kaymasın)
+export const CAT_WALK_STEP_V = ${WALK_STEP_V}; // önden/arkadan yürümede kare başına dünya px
 export const CAT_CELL = { w: ${CW}, h: ${CH} };
 export const CAT_ORIGIN = { x: 0.5, y: ${((CH - PAD) / CH).toFixed(4)} };
 // ad -> [x, y] (sol üst köşe)

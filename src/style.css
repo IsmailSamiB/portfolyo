@@ -1749,3 +1749,18 @@ body.is-classic .hud-top {
     background: #fff;
   }
 }
+
+/* İHA uçarken iniş düğmesi: alt ortada, kontrol ipucunun üstünde */
+.hud-drone {
+  position: absolute;
+  left: 50%;
+  bottom: calc(56px + var(--safe-b));
+  z-index: 11;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.hud-drone[hidden],
+body.is-classic .hud-drone {
+  display: none;
+}

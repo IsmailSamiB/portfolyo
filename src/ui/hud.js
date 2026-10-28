@@ -252,7 +252,20 @@ export function createHud(root, { onToggleClassic, onPrintCv }) {
 
   const secretToast = el('div', { class: 'secret-toast', role: 'status', hidden: true });
 
-  root.append(top, hint, toast, secretToast);
+  // --- İHA uçarken iniş düğmesi (dokunmatikte E tuşu yok) ---
+  // Basınca hemen iner (oyun içi düğme gibi); click yalnız klavye (Enter/Space) için, ikinci çağrıyı oyun yok sayar
+  const droneBtn = el('button', {
+    type: 'button',
+    class: 'px-btn px-btn--accent hud-drone',
+    hidden: true,
+    onpointerdown: (event) => {
+      event.preventDefault();
+      emit('drone:land');
+    },
+    onclick: () => emit('drone:land'),
+  });
+
+  root.append(top, hint, toast, secretToast, droneBtn);
 
   function render() {
     const count = seen.size;
@@ -299,6 +312,7 @@ export function createHud(root, { onToggleClassic, onPrintCv }) {
     secretsLine.textContent = `${pick(S.hud.secrets)} ${secrets.size}/${SECRETS.length}`;
 
     hint.textContent = pick(isTouch() ? S.hud.hintTouch : S.hud.hintKeys);
+    droneBtn.textContent = pick(S.hud.droneLand);
 
     toastTitle.textContent = pick(S.hud.achievementTitle);
     toastText.textContent = pick(S.hud.achievementText);
@@ -410,6 +424,9 @@ export function createHud(root, { onToggleClassic, onPrintCv }) {
   // Diyalog satırı ilerlemesi köprüde yok; yalnızca diyalog açılışında blip çalar.
   on('dialog:show', () => sfx('blip'));
   on('secret:found', (detail) => foundSecret(detail && detail.id));
+  on('drone:state', (detail) => {
+    droneBtn.hidden = !(detail && detail.flying);
+  });
   on('audio:muted', render);
   on('lang:changed', render);
 
